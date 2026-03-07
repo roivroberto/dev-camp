@@ -347,37 +347,37 @@ export default function LandingPage() {
 		{
 			icon: GitBranch,
 			title: "Explainable Routing",
-			desc: "Every ticket shows why it was assigned: skills, workload, and product expertise.",
+			desc: "See exactly why each ticket was assigned—skill, load, and expertise.",
 			color: "violet",
 		},
 		{
 			icon: ShieldCheck,
 			title: "Human Review States",
-			desc: "Fylo flags uncertain cases for manager review instead of auto-assigning blindly.",
+			desc: "Uncertain cases go to a manager, not the void.",
 			color: "amber",
 		},
 		{
 			icon: BarChart3,
 			title: "Workload Visibility",
-			desc: "See every teammate's queue in real time to balance pods and prevent overload.",
+			desc: "Every agent's queue, live. Spot overload before it happens.",
 			color: "sky",
 		},
 		{
 			icon: Zap,
 			title: "Instant Triage",
-			desc: "Structured tickets are created and routed in under a second—no manual sorting.",
+			desc: "Emails become routed tickets in under a second.",
 			color: "emerald",
 		},
 		{
 			icon: Eye,
 			title: "Full Audit Trail",
-			desc: "Every routing decision is logged with reasoning so managers can improve over time.",
+			desc: "Every routing decision logged with reasoning.",
 			color: "teal",
 		},
 		{
 			icon: Route,
 			title: "Skill-Based Matching",
-			desc: "Agents are matched by expertise tags, not just round-robin—better outcomes, fewer re-routes.",
+			desc: "Expertise tags beat round-robin. Fewer re-routes.",
 			color: "rose",
 		},
 	];
@@ -387,33 +387,31 @@ export default function LandingPage() {
 			num: "01",
 			icon: Inbox,
 			title: "Capture",
-			desc: "Fylo ingests emails from your support inbox and converts them into structured, categorized tickets automatically.",
+			desc: "Emails auto-convert into structured tickets.",
 		},
 		{
 			num: "02",
 			icon: Route,
 			title: "Route",
-			desc: "Explainable rules match each ticket to the right agent based on skill tags, current workload, and product expertise.",
+			desc: "Skill tags and live workload pick the right agent.",
 		},
 		{
 			num: "03",
 			icon: Eye,
 			title: "Review",
-			desc: "Low-confidence assignments surface for manager review. You refine routing logic over time without writing code.",
+			desc: "Low-confidence cases surface for manager review. No code.",
 		},
 	];
 
 	const testimonials = [
 		{
-			quote:
-				"We cut triage time by 40% in the first week. Fylo just works—and we can see exactly why every ticket went where it did.",
+			quote: "40% faster triage in week one. And we can see exactly why every ticket landed where it did.",
 			name: "Sarah L.",
 			role: "Head of Support, Growthly",
 			initials: "SL",
 		},
 		{
-			quote:
-				"The review queue is a game changer. We stopped losing tickets in the cracks the moment we turned on Fylo.",
+			quote: "We stopped losing tickets the moment we turned on Fylo.",
 			name: "Marcus T.",
 			role: "Support Lead, Stackify",
 			initials: "MT",
@@ -517,9 +515,7 @@ export default function LandingPage() {
 							variants={fadeUp}
 							className="hero-sub"
 						>
-							Fylo converts incoming emails into structured tickets, routes them
-							based on skills and workload, and flags uncertain cases for human
-							review—so small support teams never lose track of work.
+							Emails in, right person assigned. Routes by skill and load—flags anything uncertain for review.
 						</motion.p>
 
 						<motion.div
@@ -565,20 +561,24 @@ export default function LandingPage() {
 			</section>
 
 			{/* ── SOCIAL PROOF: LOGOS ── */}
-			<section className="border-y border-white/[0.06] py-10 bg-white/[0.01]">
-				<div className="max-w-5xl mx-auto px-6">
-					<AnimatedSection>
-						<p className="text-center text-xs font-mono text-white/25 uppercase tracking-widest mb-8">
-							Trusted by fast-moving support teams
-						</p>
-						<div className="flex flex-wrap justify-center gap-x-10 gap-y-4">
+			<section className="border-y border-white/[0.06] py-10 bg-white/[0.01] overflow-hidden">
+				<p className="text-center text-xs font-mono text-white/25 uppercase tracking-widest mb-8">
+					Trusted by fast-moving support teams
+				</p>
+				{/* Marquee: two identical tracks side-by-side scrolling left */}
+				<div className="marquee-outer">
+					<div className="marquee-track">
+						<div className="marquee-content">
 							{logos.map((logo) => (
-								<span key={logo} className="logo-pill">
-									{logo}
-								</span>
+								<span key={logo} className="logo-pill">{logo}</span>
 							))}
 						</div>
-					</AnimatedSection>
+						<div className="marquee-content" aria-hidden="true">
+							{logos.map((logo) => (
+								<span key={`${logo}-dup`} className="logo-pill">{logo}</span>
+							))}
+						</div>
+					</div>
 				</div>
 			</section>
 
@@ -608,11 +608,10 @@ export default function LandingPage() {
 						<div className="section-header">
 							<p className="section-eyebrow">Features</p>
 							<h2 className="section-h2">
-								Everything a lean team needs to route with confidence
+								Built for teams that can't afford misroutes
 							</h2>
 							<p className="section-sub">
-								No more guessing. No more misrouted tickets. Just clear logic,
-								visible workloads, and smart escalation.
+								Clear logic. Visible workloads. Zero guesswork.
 							</p>
 						</div>
 					</AnimatedSection>
@@ -650,9 +649,7 @@ export default function LandingPage() {
 					<AnimatedSection>
 						<div className="section-header">
 							<p className="section-eyebrow">How it works</p>
-							<h2 className="section-h2">
-								From inbox to resolved in three clear steps
-							</h2>
+							<h2 className="section-h2">Three steps. No setup drama.</h2>
 						</div>
 					</AnimatedSection>
 
@@ -695,7 +692,7 @@ export default function LandingPage() {
 					<AnimatedSection>
 						<div className="section-header">
 							<p className="section-eyebrow">Social proof</p>
-							<h2 className="section-h2">Teams that switched never looked back</h2>
+							<h2 className="section-h2">What teams are saying</h2>
 						</div>
 					</AnimatedSection>
 
@@ -743,12 +740,9 @@ export default function LandingPage() {
 							<span className="badge-dot" />
 							Get started today
 						</div>
-						<h2 className="cta-h2">
-							Stop losing tickets. Start routing with clarity.
-						</h2>
+						<h2 className="cta-h2">Less chaos. More signal.</h2>
 						<p className="cta-sub">
-							Join support teams that use Fylo to triage faster, route smarter,
-							and give every ticket a visible reason.
+							Triage faster, route smarter, see why every ticket landed where it did.
 						</p>
 						<div className="flex flex-col sm:flex-row justify-center gap-3 mt-8">
 							<Link href="/sign-up" className="btn-cta btn-cta-lg group">

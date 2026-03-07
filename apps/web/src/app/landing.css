@@ -265,7 +265,50 @@ body:has(.landing-page) {
 	100% { background-position: -200% center; }
 }
 
-/* ═══════════════ SOCIAL PROOF ═══════════════ */
+/* ═══════════════ SOCIAL PROOF / MARQUEE ═══════════════ */
+
+/* Clip the scrolling track and add edge fades */
+.landing-page .marquee-outer {
+	overflow: hidden;
+	-webkit-mask-image: linear-gradient(
+		to right,
+		transparent 0%,
+		#000 12%,
+		#000 88%,
+		transparent 100%
+	);
+	mask-image: linear-gradient(
+		to right,
+		transparent 0%,
+		#000 12%,
+		#000 88%,
+		transparent 100%
+	);
+}
+
+/* The moving strip: two identical copies side-by-side */
+.landing-page .marquee-track {
+	display: flex;
+	width: max-content;
+	animation: marquee-scroll 22s linear infinite;
+}
+
+.landing-page .marquee-track:hover {
+	animation-play-state: paused;
+}
+
+/* Each copy is a row of logos */
+.landing-page .marquee-content {
+	display: flex;
+	align-items: center;
+	gap: 3.5rem;
+	padding: 0 3.5rem; /* half-gap on each end so the seam is invisible */
+}
+
+@keyframes marquee-scroll {
+	from { transform: translateX(0); }
+	to   { transform: translateX(-50%); } /* exactly one copy width */
+}
 
 .landing-page .logo-pill {
 	font-family: var(--font-secondary), sans-serif;
@@ -274,11 +317,13 @@ body:has(.landing-page) {
 	color: rgba(232, 232, 232, 0.2);
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
+	white-space: nowrap;
 	transition: color 0.2s ease;
+	cursor: default;
 }
 
 .landing-page .logo-pill:hover {
-	color: rgba(232, 232, 232, 0.45);
+	color: rgba(232, 232, 232, 0.5);
 }
 
 /* ═══════════════ METRICS ═══════════════ */
