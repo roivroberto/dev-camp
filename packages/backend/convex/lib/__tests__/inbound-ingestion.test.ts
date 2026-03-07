@@ -89,6 +89,7 @@ describe("ingestInboundTicket", () => {
 	it("deduplicates inbound tickets by source and external id", async () => {
 		const store = new InMemoryTicketStore();
 		const seed: InboundTicketSeed<string> = {
+			workspaceId: "workspace_1",
 			source: INBOUND_TICKET_SOURCE,
 			externalId: "email_123",
 			messageId: "message_1",

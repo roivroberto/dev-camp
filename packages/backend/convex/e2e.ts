@@ -2,6 +2,7 @@ import { mutationGeneric as mutation, queryGeneric as query } from "convex/serve
 import { ConvexError, v } from "convex/values";
 
 import { authComponent } from "./auth";
+import { normalizePodCode } from "./lib/workspace_access";
 import { canAccessOperationalCorePilot } from "./tickets";
 
 const ROUTING_POLICY_SLUG = "routing-policy";
@@ -79,6 +80,12 @@ async function requireOperationalCoreAccess(ctx: any) {
 	return user;
 }
 
+function requireE2EBootstrapEnabled() {
+	if (process.env.NODE_ENV === "production") {
+		throw new ConvexError("Forbidden");
+	}
+}
+
 function buildPolicyBody() {
 	return JSON.stringify({
 		autoAssignThreshold: 0.8,
@@ -93,7 +100,7 @@ function buildScopedKey(prefix: string, userId: string, key: string) {
 }
 
 function buildWorkspaceSlug(userId: string) {
-	return `fylo-e2e-${userId}`;
+	return normalizePodCode(`fylo-e2e-${userId}`);
 }
 
 function buildWorkspaceUserId(userId: string, label: string) {
@@ -267,7 +274,7 @@ async function ensureTicket(
 	};
 
 	if (existingTicket) {
-		await db.patch(existingTicket._id, payload);
+		await db.replace(existingTicket._id, payload);
 		return existingTicket._id;
 	}
 
@@ -495,6 +502,7 @@ export const seedData = mutation({
 		persistedDraftSeedKey: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
+		requireE2EBootstrapEnabled();
 		const user = await requireCurrentUser(ctx);
 		const userId = String(user._id);
 		const userEmail = user.email ?? `${userId}@fylo.local`;
@@ -571,7 +579,27 @@ export const getLatestOutboundForTicket = query({
 		ticketId: v.id("tickets"),
 	},
 	handler: async (ctx, args): Promise<OutboundMessageWorkspace | null> => {
-		await requireOperationalCoreAccess(ctx);
+		requireE2EBootstrapEnabled();
+		const user = await requireOperationalCoreAccess(ctx);
+		const ticket = await ctx.db.get(args.ticketId);
+
+		if (!ticket) {
+			return null;
+		}
+
+		const memberships = await ctx.db
+			.query("memberships")
+			.withIndex("by_userId", (q: any) => q.eq("userId", String(user._id)))
+			.collect();
+		const canAccessTicket = memberships.some(
+			(membership: any) =>
+				String(membership.workspaceId) === String(ticket.workspaceId),
+		);
+
+		if (!canAccessTicket) {
+			throw new ConvexError("Forbidden");
+		}
+
 		const outboundMessages = await ctx.db
 			.query("messages")
 			.withIndex("by_ticketId", (q: any) => q.eq("ticketId", args.ticketId))

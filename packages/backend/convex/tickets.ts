@@ -98,7 +98,7 @@ export type ReviewWorkspace = {
 };
 
 export type InboundTicketSeed<MessageId = string> = {
-	workspaceId?: string;
+	workspaceId: string;
 	source: typeof INBOUND_TICKET_SOURCE;
 	externalId: string;
 	messageId: MessageId;
@@ -677,7 +677,7 @@ async function rerouteTicketWithoutClassification(ctx: any, ticketId: string) {
 
 export const ingestInbound = mutation({
 	args: {
-		workspaceId: v.optional(v.id("workspaces")),
+		workspaceId: v.id("workspaces"),
 		source: v.literal(INBOUND_TICKET_SOURCE),
 		externalId: v.string(),
 		messageId: v.id("messages"),

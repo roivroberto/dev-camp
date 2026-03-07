@@ -1,74 +1,57 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-const BOOTSTRAP_SECRET = process.env.E2E_BOOTSTRAP_SECRET ?? "fylo-e2e-secret";
 const AUTH_PASSWORD = "Fylo-E2E-password-123!";
 
-async function ensureWorkspaceSeeded(page: Page) {
-	const tokenResponse = await page.evaluate(async () => {
-		const response = await fetch("/api/auth/convex/token");
-
-		return {
-			status: response.status,
-			body: await response.text(),
-		};
-	});
-
-	expect(tokenResponse.status, tokenResponse.body).toBe(200);
-
-	const seedResponse = await page.evaluate(async (bootstrapSecret) => {
-		const response = await fetch("/api/e2e/bootstrap", {
-			method: "POST",
-			headers: {
-				"content-type": "application/json",
-				"x-e2e-bootstrap-secret": bootstrapSecret,
-			},
-			body: JSON.stringify({}),
-		});
-
-		return {
-			status: response.status,
-			body: await response.text(),
-		};
-	}, BOOTSTRAP_SECRET);
-
-	expect(seedResponse.status, seedResponse.body).toBe(200);
-}
-
-test("supports sign-up and sign-in through protected route redirects", async ({
-	page,
+test("supports admin sign-up and invited pod-code sign-up", async ({
+	browser,
 }) => {
 	test.slow();
 
-	const email = `auth-flow-${Date.now()}@fylo.local`;
+	const adminContext = await browser.newContext();
+	const invitedContext = await browser.newContext();
+	const adminPage = await adminContext.newPage();
+	const invitedPage = await invitedContext.newPage();
+	const adminEmail = `auth-flow-admin-${Date.now()}@fylo.local`;
+	const invitedEmail = `auth-flow-invite-${Date.now()}@fylo.local`;
 
-	await page.goto("/visibility");
-	await expect(page).toHaveURL(/\/sign-in\?next=%2Fvisibility/);
+	await adminPage.goto("/visibility");
+	await expect(adminPage).toHaveURL(/\/sign-in\?next=%2Fvisibility/);
 
-	await page.goto("/sign-up?next=%2Fqueue");
-	await page.getByLabel("Name").fill("Auth Flow User");
-	await page.getByLabel("Email").fill(email);
-	await page.getByLabel("Password").fill(AUTH_PASSWORD);
-	await page.getByRole("button", { name: "Create account" }).click();
+	await adminPage.goto("/sign-up?next=%2Fqueue");
+	await adminPage.getByLabel("Name").fill("Auth Flow Admin");
+	await adminPage.getByLabel("Email").fill(adminEmail);
+	await adminPage.getByLabel("Password").fill(AUTH_PASSWORD);
+	await adminPage.getByRole("button", { name: "Create account" }).click();
 
-	await expect(page).toHaveURL(/\/queue$/);
-	await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-
-	await ensureWorkspaceSeeded(page);
-
-	await page.getByRole("button", { name: "Sign out" }).click();
-	await expect(page.getByText("signed out")).toBeVisible();
-
-	await page.goto("/visibility");
-	await expect(page).toHaveURL(/\/sign-in\?next=%2Fvisibility/);
-
-	await page.getByLabel("Email").fill(email);
-	await page.getByLabel("Password").fill(AUTH_PASSWORD);
-	await page.getByRole("button", { name: "Sign in" }).click();
-
-	await expect(page).toHaveURL(/\/visibility$/);
+	await expect(adminPage).toHaveURL(/\/$/);
 	await expect(
-		page.getByRole("heading", {
+		adminPage
+			.getByRole("heading", { name: /my workspace|start your workspace|join an existing workspace/i })
+			.first(),
+	).toBeVisible();
+	await expect(adminPage.getByText("My workspace")).toBeVisible();
+	const podCode = (await adminPage.locator("code").textContent())?.trim();
+	expect(podCode).toMatch(/^pod-/);
+
+	await invitedPage.goto("/visibility");
+	await expect(invitedPage).toHaveURL(/\/sign-in\?next=%2Fvisibility/);
+
+	await invitedPage.goto("/sign-up?next=%2Fvisibility");
+	await invitedPage.getByLabel("Name").fill("Invited User");
+	await invitedPage.getByLabel("Email").fill(invitedEmail);
+	await invitedPage.getByLabel("Password").fill(AUTH_PASSWORD);
+	await invitedPage.getByLabel("Pod code").fill(podCode ?? "");
+	await invitedPage.getByRole("button", { name: "Create account" }).click();
+
+	await expect(invitedPage).toHaveURL(/\/$/);
+	await invitedPage.goto("/visibility");
+	await expect(invitedPage).toHaveURL(/\/visibility$/);
+	await expect(
+		invitedPage.getByRole("heading", {
 			name: "Make workload hotspots obvious before routing drifts",
 		}),
 	).toBeVisible();
+
+	await adminContext.close();
+	await invitedContext.close();
 });
