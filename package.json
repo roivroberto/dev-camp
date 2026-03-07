@@ -27,6 +27,7 @@
 	"dependencies": {
 		"@Fylo/env": "workspace:*",
 		"dotenv": "catalog:",
+		"framer-motion": "^12.35.1",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
