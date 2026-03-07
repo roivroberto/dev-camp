@@ -16,6 +16,7 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({
 		push,
 	}),
+	useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("next/link", () => ({
@@ -39,32 +40,19 @@ describe("SignUpPage", () => {
 		signUpWithEmail.mockResolvedValue({ data: {} });
 	});
 
-	it("shows Welcome to Fylo with role choices", async () => {
+	it("shows sign up form on initial render", async () => {
 		const { default: SignUpPage } = await import("./page");
 		render(<SignUpPage />);
-
-		expect(screen.getByText(/Welcome to Fylo/i)).toBeInTheDocument();
-		expect(screen.getByText(/I am a Team Lead/i)).toBeInTheDocument();
-		expect(screen.getByText(/I am a Team Member/i)).toBeInTheDocument();
-	});
-
-	it("navigates to sign-up form when clicking Need an account", async () => {
-		const { default: SignUpPage } = await import("./page");
-		render(<SignUpPage />);
-
-		const needAccountTexts = screen.getAllByText(/Need an account\?/i);
-		const gatekeeperNeedAccount = needAccountTexts.find(
-			(el) => el.closest(".step-container.active"),
-		);
-		const clickHereButton = gatekeeperNeedAccount?.parentElement?.querySelector(
-			"button",
-		);
-		if (!clickHereButton) throw new Error("Need an account button not found");
-		fireEvent.click(clickHereButton);
 
 		const signUpHeading = screen.getByRole("heading", { name: /SIGN UP/i });
 		expect(signUpHeading).toBeInTheDocument();
+	});
 
+	it("navigates to role selection after successful sign up", async () => {
+		const { default: SignUpPage } = await import("./page");
+		render(<SignUpPage />);
+
+		const signUpHeading = screen.getByRole("heading", { name: /SIGN UP/i });
 		const signUpStep = signUpHeading.closest(".step-container");
 		if (!signUpStep) throw new Error("Sign-up step container not found");
 		const signUp = within(signUpStep as HTMLElement);
@@ -86,7 +74,15 @@ describe("SignUpPage", () => {
 				email: "pilot@fylo.local",
 				password: "Fylo-E2E-password-123!",
 			});
-			expect(push).toHaveBeenCalledWith("/visibility");
 		});
+
+		// After success, it should show the role choices
+		expect(screen.getByText(/Choose your role/i)).toBeInTheDocument();
+		expect(screen.getByText(/I am a Team Lead/i)).toBeInTheDocument();
+		expect(screen.getByText(/I am a Team Member/i)).toBeInTheDocument();
+
+		// Clicking a role should navigate to visibility
+		fireEvent.click(screen.getByText(/I am a Team Lead/i));
+		expect(push).toHaveBeenCalledWith("/visibility");
 	});
 });

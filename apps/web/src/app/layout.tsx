@@ -1,25 +1,25 @@
 import type { Metadata } from "next";
 
 import "../index.css";
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, JetBrains_Mono } from "next/font/google";
 
 import LayoutContent from "@/components/layout-content";
 import Providers from "@/components/providers";
 import { getInitialAuthToken } from "@/lib/auth-server";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
+const jetbrainsMono = JetBrains_Mono({
+	variable: "--font-jetbrains-mono",
 	subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
+const dmSans = DM_Sans({
+	variable: "--font-dm-sans",
 	subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
 	title: "Fylo",
-	description: "Fylo",
+	description: "Workspace and pod management for dynamic teams",
 };
 
 export default async function RootLayout({
@@ -32,7 +32,7 @@ export default async function RootLayout({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+				className={`${jetbrainsMono.variable} ${dmSans.variable} antialiased`}
 			>
 				<Providers initialToken={initialToken}>
 					<LayoutContent>{children}</LayoutContent>
