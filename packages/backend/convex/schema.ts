@@ -1,4 +1,91 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-export default defineSchema({});
+const workspaceRole = v.union(v.literal("lead"), v.literal("agent"));
+const ticketReviewState = v.union(
+	v.literal("auto_assign_allowed"),
+	v.literal("manager_verification"),
+	v.literal("manual_triage"),
+);
+const ticketStatus = v.union(
+	v.literal("new"),
+	v.literal("reviewed"),
+	v.literal("assigned"),
+);
+const messageDirection = v.union(v.literal("inbound"), v.literal("outbound"));
+const outboundDeliveryStatus = v.union(v.literal("pending"), v.literal("sent"));
+
+export default defineSchema({
+	workspaces: defineTable({
+		name: v.string(),
+		slug: v.string(),
+		createdAt: v.number(),
+		createdByUserId: v.string(),
+	})
+		.index("by_slug", ["slug"])
+		.index("by_createdByUserId", ["createdByUserId"]),
+	memberships: defineTable({
+		workspaceId: v.id("workspaces"),
+		userId: v.string(),
+		role: workspaceRole,
+		createdAt: v.number(),
+	})
+		.index("by_workspaceId", ["workspaceId"])
+		.index("by_userId", ["userId"])
+		.index("by_workspaceId_userId", ["workspaceId", "userId"]),
+	policies: defineTable({
+		workspaceId: v.id("workspaces"),
+		title: v.string(),
+		slug: v.string(),
+		body: v.string(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+		createdByUserId: v.string(),
+	})
+		.index("by_workspaceId", ["workspaceId"])
+		.index("by_workspaceId_slug", ["workspaceId", "slug"]),
+	messages: defineTable({
+		direction: messageDirection,
+		source: v.literal("resend"),
+		externalId: v.union(v.string(), v.null()),
+		idempotencyKey: v.string(),
+		ticketId: v.optional(v.id("tickets")),
+		providerMessageId: v.optional(v.union(v.string(), v.null())),
+		from: v.union(v.string(), v.null()),
+		to: v.array(v.string()),
+		subject: v.union(v.string(), v.null()),
+		text: v.union(v.string(), v.null()),
+		html: v.union(v.string(), v.null()),
+		createdAt: v.optional(v.number()),
+		receivedAt: v.optional(v.number()),
+		sentAt: v.optional(v.number()),
+		deliveryStatus: v.optional(outboundDeliveryStatus),
+		rawBody: v.string(),
+	})
+		.index("by_idempotencyKey", ["idempotencyKey"])
+		.index("by_ticketId", ["ticketId"])
+		.index("by_source_externalId", ["source", "externalId"]),
+	notes: defineTable({
+		ticketId: v.id("tickets"),
+		body: v.string(),
+		authorUserId: v.string(),
+		authorLabel: v.string(),
+		createdAt: v.number(),
+	}).index("by_ticketId", ["ticketId"]),
+	tickets: defineTable({
+		source: v.literal("resend"),
+		externalId: v.string(),
+		messageId: v.id("messages"),
+		requesterEmail: v.union(v.string(), v.null()),
+		subject: v.union(v.string(), v.null()),
+		assignedWorkerId: v.optional(v.union(v.string(), v.null())),
+		reviewState: v.optional(ticketReviewState),
+		routingReason: v.optional(v.string()),
+		status: v.optional(ticketStatus),
+		routedAt: v.optional(v.number()),
+		reviewedAt: v.optional(v.number()),
+		receivedAt: v.number(),
+	})
+		.index("by_source_externalId", ["source", "externalId"])
+		.index("by_messageId", ["messageId"]),
+});

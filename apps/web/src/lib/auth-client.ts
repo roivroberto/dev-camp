@@ -1,6 +1,10 @@
-import { createAuthClient } from "better-auth/react";
+import { env } from "@Fylo/env/web";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
-    plugins: [convexClient()],
+	baseURL: env.NEXT_PUBLIC_SITE_URL,
+	plugins: [convexClient()],
 });
+
+export type AuthSession = typeof authClient.$Infer.Session;

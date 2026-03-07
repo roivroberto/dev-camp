@@ -35,6 +35,7 @@ lerna-debug.log*
 
 # Turbo
 .turbo
+.worktrees/
 
 # Better-T-Stack
 .alchemy
@@ -42,6 +43,7 @@ lerna-debug.log*
 # Testing
 coverage
 .nyc_output
+test-results
 
 # Misc
 *.tgz
