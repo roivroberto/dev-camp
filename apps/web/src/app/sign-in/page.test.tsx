@@ -47,10 +47,10 @@ describe("SignInPage", () => {
 		const { default: SignInPage } = await import("./page");
 		render(<SignInPage />);
 
-		fireEvent.change(screen.getByLabelText(/email/i), {
+		fireEvent.change(screen.getByRole("textbox", { name: /email/i }), {
 			target: { value: "pilot@fylo.local" },
 		});
-		fireEvent.change(screen.getByLabelText(/password/i), {
+		fireEvent.change(screen.getByPlaceholderText("••••••••"), {
 			target: { value: "Fylo-E2E-password-123!" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
@@ -70,10 +70,10 @@ describe("SignInPage", () => {
 		const { default: SignInPage } = await import("./page");
 		render(<SignInPage />);
 
-		fireEvent.change(screen.getByLabelText(/email/i), {
+		fireEvent.change(screen.getByRole("textbox", { name: /email/i }), {
 			target: { value: "pilot@fylo.local" },
 		});
-		fireEvent.change(screen.getByLabelText(/password/i), {
+		fireEvent.change(screen.getByPlaceholderText("••••••••"), {
 			target: { value: "Fylo-E2E-password-123!" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: /sign in/i }));

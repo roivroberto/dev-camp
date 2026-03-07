@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "../index.css";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import Header from "@/components/header";
+import LayoutContent from "@/components/layout-content";
 import Providers from "@/components/providers";
 import { getInitialAuthToken } from "@/lib/auth-server";
 
@@ -35,10 +35,7 @@ export default async function RootLayout({
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
 				<Providers initialToken={initialToken}>
-					<div className="grid grid-rows-[auto_1fr] h-svh">
-						<Header />
-						{children}
-					</div>
+					<LayoutContent>{children}</LayoutContent>
 				</Providers>
 			</body>
 		</html>

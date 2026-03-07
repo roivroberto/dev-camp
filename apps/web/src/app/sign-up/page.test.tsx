@@ -4,20 +4,17 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
-const getSearchParam = vi.fn();
 const signUpWithEmail = vi.fn();
 
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({
 		push,
-	}),
-	useSearchParams: () => ({
-		get: getSearchParam,
 	}),
 }));
 
@@ -39,24 +36,49 @@ describe("SignUpPage", () => {
 	beforeEach(() => {
 		cleanup();
 		vi.clearAllMocks();
-		getSearchParam.mockReturnValue("/visibility");
 		signUpWithEmail.mockResolvedValue({ data: {} });
 	});
 
-	it("calls Better Auth sign-up and redirects to the safe next path", async () => {
+	it("shows Welcome to Fylo with role choices", async () => {
 		const { default: SignUpPage } = await import("./page");
 		render(<SignUpPage />);
 
-		fireEvent.change(screen.getByLabelText(/name/i), {
+		expect(screen.getByText(/Welcome to Fylo/i)).toBeInTheDocument();
+		expect(screen.getByText(/I am a Team Lead/i)).toBeInTheDocument();
+		expect(screen.getByText(/I am a Team Member/i)).toBeInTheDocument();
+	});
+
+	it("navigates to sign-up form when clicking Need an account", async () => {
+		const { default: SignUpPage } = await import("./page");
+		render(<SignUpPage />);
+
+		const needAccountTexts = screen.getAllByText(/Need an account\?/i);
+		const gatekeeperNeedAccount = needAccountTexts.find(
+			(el) => el.closest(".step-container.active"),
+		);
+		const clickHereButton = gatekeeperNeedAccount?.parentElement?.querySelector(
+			"button",
+		);
+		if (!clickHereButton) throw new Error("Need an account button not found");
+		fireEvent.click(clickHereButton);
+
+		const signUpHeading = screen.getByRole("heading", { name: /SIGN UP/i });
+		expect(signUpHeading).toBeInTheDocument();
+
+		const signUpStep = signUpHeading.closest(".step-container");
+		if (!signUpStep) throw new Error("Sign-up step container not found");
+		const signUp = within(signUpStep as HTMLElement);
+
+		fireEvent.change(signUp.getByPlaceholderText("John Doe"), {
 			target: { value: "Pilot User" },
 		});
-		fireEvent.change(screen.getByLabelText(/email/i), {
+		fireEvent.change(signUp.getByPlaceholderText("john@acme.com"), {
 			target: { value: "pilot@fylo.local" },
 		});
-		fireEvent.change(screen.getByLabelText(/password/i), {
+		fireEvent.change(signUp.getByPlaceholderText("••••••••"), {
 			target: { value: "Fylo-E2E-password-123!" },
 		});
-		fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+		fireEvent.click(signUp.getByRole("button", { name: /create account/i }));
 
 		await waitFor(() => {
 			expect(signUpWithEmail).toHaveBeenCalledWith({
@@ -64,28 +86,6 @@ describe("SignUpPage", () => {
 				email: "pilot@fylo.local",
 				password: "Fylo-E2E-password-123!",
 			});
-			expect(push).toHaveBeenCalledWith("/visibility");
-		});
-	});
-
-	it("ignores unsafe next params and uses default path", async () => {
-		getSearchParam.mockReturnValue("//evil.example");
-
-		const { default: SignUpPage } = await import("./page");
-		render(<SignUpPage />);
-
-		fireEvent.change(screen.getByLabelText(/name/i), {
-			target: { value: "Pilot User" },
-		});
-		fireEvent.change(screen.getByLabelText(/email/i), {
-			target: { value: "pilot@fylo.local" },
-		});
-		fireEvent.change(screen.getByLabelText(/password/i), {
-			target: { value: "Fylo-E2E-password-123!" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: /create account/i }));
-
-		await waitFor(() => {
 			expect(push).toHaveBeenCalledWith("/visibility");
 		});
 	});

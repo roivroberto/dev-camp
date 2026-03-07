@@ -1,0 +1,155 @@
+/* Landing page styles - scoped to when landing is mounted */
+.landing-page {
+  --carbon: #0f0f0f;
+  --vellum: rgba(255, 255, 255, 0.03);
+  --vellum-border: rgba(255, 255, 255, 0.08);
+  --accent: #e2e2e2;
+}
+
+body:has(.landing-page) {
+  --carbon: #0f0f0f;
+  --vellum: rgba(255, 255, 255, 0.03);
+  --vellum-border: rgba(255, 255, 255, 0.08);
+  --accent: #e2e2e2;
+  background-color: var(--carbon);
+  color: var(--accent);
+  font-family: "Inter", sans-serif;
+  overflow: hidden;
+  background-image: radial-gradient(
+      circle at 50% 50%,
+      rgba(40, 40, 40, 0.5) 0%,
+      transparent 80%
+    ),
+    url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
+}
+
+.landing-page .mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.landing-page .vellum-card {
+  background: var(--vellum);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--vellum-border);
+  border-radius: 4px;
+  box-shadow:
+    10px 10px 30px rgba(0, 0, 0, 0.5),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.05);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-page .vellum-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.landing-page .embossed-text {
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow:
+    -1px -1px 0px rgba(0, 0, 0, 0.8),
+    1px 1px 0px rgba(255, 255, 255, 0.1);
+}
+
+.landing-page .debossed-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 2px 2px 8px rgba(0, 0, 0, 0.8);
+  color: #fff;
+  transition: border-color 0.3s ease;
+}
+
+.landing-page .debossed-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.landing-page .grain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+.landing-page .step-container {
+  display: none;
+  animation: landing-slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.landing-page .step-container.active {
+  display: flex;
+}
+
+@keyframes landing-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-page .pod-code-input {
+  letter-spacing: 0.5em;
+  font-size: 2.5rem;
+  text-align: center;
+  font-weight: 800;
+}
+
+.landing-page .btn-primary {
+  background: #fff;
+  color: #000;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 1rem 2rem;
+  transition: all 0.3s ease;
+  clip-path: polygon(0 0, 95% 0, 100% 25%, 100% 100%, 5% 100%, 0 75%);
+}
+
+.landing-page .btn-primary:hover {
+  background: #ccc;
+  transform: scale(1.02);
+}
+
+.landing-page .upload-zone {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.01);
+  transition: all 0.3s ease;
+}
+
+.landing-page .upload-zone:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.landing-page .tooltip {
+  background: rgba(255, 255, 255, 0.9);
+  color: #000;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 2px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes landing-loading {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.landing-page .loading-bar {
+  animation: landing-loading 2s infinite;
+}
