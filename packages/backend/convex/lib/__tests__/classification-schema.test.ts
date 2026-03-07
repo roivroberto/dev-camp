@@ -126,6 +126,7 @@ describe("classifyTicketWithFallback", () => {
 describe("buildTicketClassificationInput", () => {
 	it("creates a strict fallback-backed classification payload from a ticket seed", () => {
 		const input = buildTicketClassificationInput("ticket_1", {
+			workspaceId: "workspace_1",
 			source: INBOUND_TICKET_SOURCE,
 			externalId: "email_123",
 			messageId: "message_1",

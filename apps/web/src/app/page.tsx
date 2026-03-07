@@ -1,7 +1,9 @@
+import { WorkspaceAccessPanel } from "../components/workspace/workspace-access-panel";
+
 export default function Home() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <h1 className="text-2xl font-semibold">Fylo</h1>
-    </div>
-  );
+	return (
+		<main className="mx-auto flex h-full w-full max-w-md items-center px-4 py-10 sm:px-6">
+			<WorkspaceAccessPanel />
+		</main>
+	);
 }

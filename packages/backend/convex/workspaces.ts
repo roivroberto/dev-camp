@@ -6,6 +6,13 @@ import { ConvexError, v } from "convex/values";
 
 import { authComponent } from "./auth";
 import { assertPilotWorkspaceCanBeCreated } from "./lib/pilot_workspace";
+import {
+	buildPodCode,
+	getSingleWorkspaceMembershipForUser,
+	getWorkspaceAccessStateForMembership,
+	getWorkspaceAccessStateForUser,
+	normalizePodCode,
+} from "./lib/workspace_access";
 
 function isDefined<T>(value: T | null): value is T {
 	return value !== null;
@@ -57,6 +64,11 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		const user = await requireCurrentUser(ctx);
 		const existingWorkspace = await ctx.db.query("workspaces").first();
+		const slug = normalizePodCode(args.slug);
+
+		if (!slug) {
+			throw new ConvexError("Pod code is required");
+		}
 
 		assertPilotWorkspaceCanBeCreated(existingWorkspace ? 1 : 0);
 
@@ -64,7 +76,7 @@ export const create = mutation({
 		const userId = String(user._id);
 		const workspaceId = await ctx.db.insert("workspaces", {
 			name: args.name,
-			slug: args.slug,
+			slug,
 			createdAt: now,
 			createdByUserId: userId,
 		});
@@ -77,5 +89,59 @@ export const create = mutation({
 		});
 
 		return workspaceId;
+	},
+});
+
+export const getCurrentWorkspace = query({
+	args: {},
+	handler: async (ctx) => {
+		const user = await requireCurrentUser(ctx);
+
+		return getWorkspaceAccessStateForUser(ctx, String(user._id));
+	},
+});
+
+export const ensureOnboardingWorkspace = mutation({
+	args: {},
+	handler: async (ctx) => {
+		const user = await requireCurrentUser(ctx);
+		const userId = String(user._id);
+		const existingMembership = await getSingleWorkspaceMembershipForUser(ctx, userId);
+
+		if (existingMembership) {
+			return getWorkspaceAccessStateForMembership(ctx, existingMembership);
+		}
+
+		const existingWorkspace = await ctx.db.query("workspaces").first();
+
+		if (existingWorkspace) {
+			return {
+				isMember: false,
+				canCreateWorkspace: false,
+				workspace: null,
+			};
+		}
+
+		assertPilotWorkspaceCanBeCreated(0);
+
+		const now = Date.now();
+		const workspaceId = await ctx.db.insert("workspaces", {
+			name: "My workspace",
+			slug: buildPodCode(userId),
+			createdAt: now,
+			createdByUserId: userId,
+		});
+		await ctx.db.insert("memberships", {
+			workspaceId,
+			userId,
+			role: "lead",
+			createdAt: now,
+		});
+
+		return getWorkspaceAccessStateForMembership(ctx, {
+			workspaceId,
+			userId,
+			role: "lead",
+		});
 	},
 });

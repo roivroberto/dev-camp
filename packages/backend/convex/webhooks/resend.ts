@@ -213,6 +213,17 @@ export async function handleResendInboundWebhook(
 					.collect()
 			: [];
 		const workspaceId = memberships[0]?.workspaceId;
+
+		if (!workspaceId) {
+			return json(
+				{
+					ok: false,
+					error: "No workspace available for inbound ticket ingestion",
+				},
+				409,
+			);
+		}
+
 		const ticketResult = (await ctx.runMutation(ingestInboundTicketReference, {
 			workspaceId,
 			source: INBOUND_TICKET_SOURCE,

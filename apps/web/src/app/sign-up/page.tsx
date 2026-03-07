@@ -2,18 +2,22 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { EmailPasswordAuthForm } from "../../components/auth/email-password-auth-form";
 import { getSafeNextPath } from "../../lib/auth-redirect";
 import { authClient, getAuthErrorMessage } from "../../lib/auth-client";
+import { persistPendingWorkspaceAction } from "../../lib/workspace-access-state";
 
 function buildSignInHref(nextPath: string): Route {
 	return `/sign-in?next=${encodeURIComponent(nextPath)}` as Route;
 }
 
+function navigateTo(path: Route) {
+	window.location.assign(path);
+}
+
 export default function SignUpPage() {
-	const router = useRouter();
 	const searchParams = useSearchParams();
 	const nextPath = getSafeNextPath(searchParams.get("next"));
 
@@ -31,7 +35,7 @@ export default function SignUpPage() {
 					<EmailPasswordAuthForm
 						mode="sign-up"
 						submitLabel="Create account"
-						onSubmit={async ({ name, email, password }) => {
+						onSubmit={async ({ name, email, password, podCode }) => {
 							const response = await authClient.signUp.email({
 								name: name?.trim() || email,
 								email,
@@ -44,7 +48,22 @@ export default function SignUpPage() {
 								);
 							}
 
-							router.push(nextPath as Route);
+							persistPendingWorkspaceAction(
+								podCode
+									? {
+										ownerSessionKey: email,
+										type: "join",
+										podCode,
+										redirectTo: nextPath,
+									}
+									: {
+										ownerSessionKey: email,
+										type: "create",
+										redirectTo: "/",
+									},
+							);
+
+							navigateTo("/" as Route);
 						}}
 					/>
 				</div>

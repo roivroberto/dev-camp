@@ -8,6 +8,12 @@ import {
 	canManageWorkspaceMemberships,
 	wouldLeaveWorkspaceWithoutLead,
 } from "./lib/authz";
+import { MULTI_WORKSPACE_ERROR } from "./lib/pilot_workspace";
+import {
+	getSingleWorkspaceMembershipForUser,
+	getWorkspaceAccessStateForMembership,
+	normalizePodCode,
+} from "./lib/workspace_access";
 
 async function requireCurrentUser(ctx: any) {
 	const user = await authComponent.getAuthUser(ctx);
@@ -96,11 +102,84 @@ export const save = mutation({
 			return existingMembership._id;
 		}
 
+		const targetUserMembership = await getSingleWorkspaceMembershipForUser(
+			ctx,
+			args.userId,
+		);
+
+		if (
+			targetUserMembership &&
+			String(targetUserMembership.workspaceId) !== String(args.workspaceId)
+		) {
+			throw new ConvexError(MULTI_WORKSPACE_ERROR);
+		}
+
 		return ctx.db.insert("memberships", {
 			workspaceId: args.workspaceId,
 			userId: args.userId,
 			role: args.role,
 			createdAt: Date.now(),
 		});
+	},
+});
+
+export const joinWithPodCode = mutation({
+	args: {
+		podCode: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const user = await requireCurrentUser(ctx);
+		const userId = String(user._id);
+		const podCode = normalizePodCode(args.podCode);
+		const workspace = await ctx.db
+			.query("workspaces")
+			.withIndex("by_slug", (q: any) => q.eq("slug", podCode))
+			.unique();
+
+		if (!workspace) {
+			throw new ConvexError("Invalid pod code");
+		}
+
+		const existingMembership = await ctx.db
+			.query("memberships")
+			.withIndex("by_workspaceId_userId", (q: any) =>
+				q.eq("workspaceId", workspace._id).eq("userId", userId),
+			)
+			.unique();
+
+		if (existingMembership) {
+			return getWorkspaceAccessStateForMembership(
+				ctx,
+				existingMembership,
+				workspace,
+			);
+		}
+
+		const pilotMembership = await getSingleWorkspaceMembershipForUser(ctx, userId);
+
+		if (pilotMembership) {
+			if (String(pilotMembership.workspaceId) === String(workspace._id)) {
+				return getWorkspaceAccessStateForMembership(ctx, pilotMembership, workspace);
+			}
+
+			throw new ConvexError(MULTI_WORKSPACE_ERROR);
+		}
+
+		await ctx.db.insert("memberships", {
+			workspaceId: workspace._id,
+			userId,
+			role: "agent",
+			createdAt: Date.now(),
+		});
+
+		return getWorkspaceAccessStateForMembership(
+			ctx,
+			{
+				workspaceId: workspace._id,
+				userId,
+				role: "agent",
+			},
+			workspace,
+		);
 	},
 });

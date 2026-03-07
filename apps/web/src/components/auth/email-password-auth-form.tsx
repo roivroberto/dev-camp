@@ -13,6 +13,7 @@ type AuthFormInput = {
 	email: string;
 	password: string;
 	name?: string;
+	podCode?: string;
 };
 
 type EmailPasswordAuthFormProps = {
@@ -29,17 +30,28 @@ export function EmailPasswordAuthForm({
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [podCode, setPodCode] = useState("");
 	const [isPending, setIsPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+
+		if (isPending) {
+			return;
+		}
+
 		setError(null);
 		setIsPending(true);
 
 		try {
+			const trimmedPodCode = podCode.trim();
+
 			await onSubmit({
 				...(mode === "sign-up" ? { name: name.trim() } : {}),
+				...(mode === "sign-up" && trimmedPodCode
+					? { podCode: trimmedPodCode }
+					: {}),
 				email: email.trim(),
 				password,
 			});
@@ -57,18 +69,36 @@ export function EmailPasswordAuthForm({
 	return (
 		<form className="grid gap-4" onSubmit={handleSubmit}>
 			{mode === "sign-up" ? (
-				<div className="grid gap-2">
-					<Label htmlFor="auth-name">Name</Label>
-					<Input
-						id="auth-name"
-						autoComplete="name"
-						required
-						value={name}
-						onChange={(event) => {
-							setName(event.currentTarget.value);
-						}}
-					/>
-				</div>
+				<>
+					<div className="grid gap-2">
+						<Label htmlFor="auth-name">Name</Label>
+						<Input
+							id="auth-name"
+							autoComplete="name"
+							disabled={isPending}
+							name="name"
+							required
+							value={name}
+							onChange={(event) => {
+								setName(event.currentTarget.value);
+							}}
+						/>
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="auth-pod-code">Pod code</Label>
+						<Input
+							id="auth-pod-code"
+							autoComplete="off"
+							disabled={isPending}
+							name="podCode"
+							placeholder="Optional"
+							value={podCode}
+							onChange={(event) => {
+								setPodCode(event.currentTarget.value);
+							}}
+						/>
+					</div>
+				</>
 			) : null}
 			<div className="grid gap-2">
 				<Label htmlFor="auth-email">Email</Label>
@@ -76,6 +106,8 @@ export function EmailPasswordAuthForm({
 					id="auth-email"
 					type="email"
 					autoComplete="email"
+					disabled={isPending}
+					name="email"
 					required
 					value={email}
 					onChange={(event) => {
@@ -89,6 +121,8 @@ export function EmailPasswordAuthForm({
 					id="auth-password"
 					type="password"
 					autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+					disabled={isPending}
+					name="password"
 					required
 					value={password}
 					onChange={(event) => {
@@ -96,7 +130,11 @@ export function EmailPasswordAuthForm({
 					}}
 				/>
 			</div>
-			{error ? <p className="text-xs text-destructive">{error}</p> : null}
+			{error ? (
+				<p aria-live="polite" className="text-xs text-destructive">
+					{error}
+				</p>
+			) : null}
 			<Button type="submit" disabled={isPending}>
 				{isPending ? "Submitting..." : submitLabel}
 			</Button>
