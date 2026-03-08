@@ -9,7 +9,9 @@ import {
 	parseCurrentResumeReference,
 	saveCurrentResumeUploadReference,
 } from "@Fylo/backend/convex/agent_profiles_reference";
+import { getCurrentWorkspaceReference } from "@Fylo/backend/convex/workspaces_reference";
 
+import { authClient } from "../../lib/auth-client";
 import { Button } from "../ui/button";
 
 function formatStatusLabel(status: string) {
@@ -39,7 +41,15 @@ async function uploadFileToConvex(uploadUrl: string, file: File) {
 }
 
 export function AgentProfileForm() {
-	const snapshot = useQuery(getCurrentAgentProfileReference, {});
+	const { data: session } = authClient.useSession();
+	const workspaceState = useQuery(
+		getCurrentWorkspaceReference,
+		session ? {} : "skip",
+	);
+	const snapshot = useQuery(
+		getCurrentAgentProfileReference,
+		session && workspaceState?.isMember ? {} : "skip",
+	);
 	const generateUploadUrl = useMutation(generateCurrentResumeUploadUrlReference);
 	const saveResumeUpload = useMutation(saveCurrentResumeUploadReference);
 	const parseCurrentResume = useAction(parseCurrentResumeReference);
@@ -54,7 +64,24 @@ export function AgentProfileForm() {
 		return profile.summary;
 	}, [profile?.summary]);
 
-	if (!snapshot) {
+	const isWorkspaceReady = session && workspaceState?.isMember;
+	const isLoading =
+		!session ||
+		workspaceState === undefined ||
+		(isWorkspaceReady && snapshot === undefined);
+
+	if (!isWorkspaceReady && workspaceState && !workspaceState.isMember) {
+		return (
+			<div className="app-card p-5">
+				<p className="app-body">
+					Join or create a workspace to manage your agent profile and upload your
+					resume for skill-based routing.
+				</p>
+			</div>
+		);
+	}
+
+	if (isLoading) {
 		return (
 			<div className="app-card">
 				<p className="app-loading">Loading agent profile…</p>
