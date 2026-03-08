@@ -27,6 +27,8 @@ type TicketWorkspace = {
 		languageMatch: boolean;
 	}>;
 	draft?: TicketDraftWorkspace;
+	currentUserId?: string | null;
+	viewerRole?: "lead" | "agent" | null;
 };
 
 type TicketDetailProps = {
@@ -42,6 +44,14 @@ function reviewStateBadge(state: string): string {
 	return "app-badge app-badge--pending";
 }
 
+function reviewStateLabel(state: string): string {
+	const s = state.toLowerCase();
+	if (s === "auto_assign_allowed") return "Ready to assign";
+	if (s === "manager_verification") return "Needs review";
+	if (s === "manual_triage") return "Needs triage";
+	return state;
+}
+
 function priorityColor(priority: string | undefined): string {
 	if (!priority) return "rgba(240,240,240,0.5)";
 	if (priority === "high")   return "#f87171";
@@ -51,6 +61,11 @@ function priorityColor(priority: string | undefined): string {
 
 export function TicketDetail({ ticket, draft }: TicketDetailProps) {
 	const ticketDraft = draft ?? ticket.draft;
+	const isAssignedAgent =
+		ticket.viewerRole === "agent" &&
+		ticket.currentUserId != null &&
+		ticket.assignedWorkerId != null &&
+		ticket.currentUserId === ticket.assignedWorkerId;
 	const conf =
 		typeof ticket.classificationConfidence === "number"
 			? Math.round(ticket.classificationConfidence * 100)
@@ -78,7 +93,7 @@ export function TicketDetail({ ticket, draft }: TicketDetailProps) {
 						)}
 					</div>
 					<span className={reviewStateBadge(ticket.reviewState)}>
-						{ticket.reviewState}
+						{reviewStateLabel(ticket.reviewState)}
 					</span>
 				</div>
 			</div>
@@ -134,7 +149,7 @@ export function TicketDetail({ ticket, draft }: TicketDetailProps) {
 									{conf}%
 								</span>
 								<span className="app-body" style={{ fontSize: "0.7rem" }}>
-									({ticket.classificationSource ?? "fallback"})
+									{ticket.classificationSource === "provider" ? "AI" : "Fallback"}
 								</span>
 							</div>
 						</div>
@@ -144,7 +159,7 @@ export function TicketDetail({ ticket, draft }: TicketDetailProps) {
 					<div>
 						<p className="app-field-label mb-2">Routing reason</p>
 						<p className="app-body" style={{ fontSize: "0.8rem" }}>
-							{ticket.routingReason ?? "Routing detail will appear once the live query is wired."}
+							{ticket.routingReason ?? "Routing details will appear after classification."}
 						</p>
 					</div>
 
@@ -157,16 +172,18 @@ export function TicketDetail({ ticket, draft }: TicketDetailProps) {
 					</div>
 				</div>
 
-				{/* Right: actions + notes + draft */}
+				{/* Right: actions + notes + draft (draft/send only for the assigned agent) */}
 				<div className="flex flex-col gap-4">
 					<TicketWorkspaceActions
 						ticketId={ticket.id}
 						reviewState={ticket.reviewState}
 						assignedWorkerId={ticket.assignedWorkerId ?? null}
 						recommendedAssigneeOptions={ticket.recommendedAssigneeOptions ?? []}
+						isLead={ticket.viewerRole === "lead"}
+						currentUserId={ticket.currentUserId ?? null}
 					/>
 					<TicketNotes notes={ticket.notes ?? []} />
-					{ticketDraft && (
+					{isAssignedAgent && ticketDraft && (
 						<DraftReplyPanel
 							ticketId={ticket.id}
 							to={ticket.requesterEmail ?? null}

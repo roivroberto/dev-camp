@@ -7,7 +7,7 @@ import {
 } from "../lib/resend_signature";
 import { INBOUND_MESSAGE_SOURCE, type InboundMessageSeed } from "../messages";
 import { INBOUND_TICKET_SOURCE } from "../tickets";
-import { classifyAndRouteTicketReference } from "../tickets_reference";
+import { classifyAndRouteActionReference } from "../tickets_reference";
 import { authComponent } from "../auth";
 
 type ResendInboundPayload = {
@@ -234,7 +234,7 @@ export async function handleResendInboundWebhook(
 			receivedAt,
 		})) as { ticketId: string; created: boolean };
 		if (messageResult.created || ticketResult.created) {
-			await ctx.runMutation(classifyAndRouteTicketReference, {
+			await ctx.runAction(classifyAndRouteActionReference, {
 				ticketId: ticketResult.ticketId,
 			});
 		}

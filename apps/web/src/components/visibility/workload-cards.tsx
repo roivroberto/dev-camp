@@ -28,6 +28,19 @@ function pipClass(index: number, status: WorkloadCard["status"], active: number)
 	return "pip pip--on";
 }
 
+function statusLabel(status: WorkloadCard["status"]): string {
+	if (status === "busy") return "Busy";
+	if (status === "watch") return "Watching";
+	return "Available";
+}
+
+function roleLabel(role: string): string {
+	const r = role.toLowerCase();
+	if (r === "lead") return "Lead";
+	if (r === "agent") return "Agent";
+	return role;
+}
+
 export function WorkloadCards({ cards }: { cards: WorkloadCard[] }) {
 	if (cards.length === 0) {
 		return (
@@ -44,13 +57,13 @@ export function WorkloadCards({ cards }: { cards: WorkloadCard[] }) {
 					{/* Header */}
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="app-eyebrow mb-1">{card.role}</p>
+							<p className="app-eyebrow mb-1">{roleLabel(card.role)}</p>
 							<h2 className="app-h3">{card.name}</h2>
 						</div>
 						<div className="flex items-center gap-2">
 							<span className={statusDotClass(card.status)} />
 							<span className={statusBadgeClass(card.status)}>
-								{card.status}
+								{statusLabel(card.status)}
 							</span>
 						</div>
 					</div>

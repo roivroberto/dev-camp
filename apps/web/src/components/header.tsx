@@ -20,13 +20,13 @@ export default function Header() {
 						Fylo
 					</Link>
 				</nav>
-				<div className="flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+				<div className="flex items-center gap-3 text-xs tracking-wide text-muted-foreground">
 					<span>
 						{isPending
 							? "Checking session"
 							: session
-								? user.role
-								: "signed out"}
+								? (user.role === "lead" ? "Lead" : user.role === "agent" ? "Agent" : user.role ?? "User")
+								: "Signed out"}
 					</span>
 					<span className="max-w-40 truncate text-right normal-case tracking-normal text-foreground">
 						{identity}

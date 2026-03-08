@@ -45,6 +45,6 @@ describe("ReviewPage", () => {
 		expect(screen.getByText("1")).toBeInTheDocument();
 		expect(screen.getByText("VIP onboarding escalation")).toBeInTheDocument();
 		expect(screen.getByText("complaint - high")).toBeInTheDocument();
-		expect(screen.getByText("manager_verification")).toBeInTheDocument();
+		expect(screen.getByText("Needs review")).toBeInTheDocument();
 	});
 });

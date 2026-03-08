@@ -24,6 +24,14 @@ export const getReviewSnapshotReference = makeFunctionReference<
 	ReviewWorkspace
 >("tickets:getReviewSnapshot");
 
+/** Action: run AI classification and routing. Use this instead of the deprecated mutation. */
+export const classifyAndRouteActionReference = makeFunctionReference<
+	"action",
+	{ ticketId: string },
+	{ ok: true }
+>("tickets:classifyAndRouteAction");
+
+/** @deprecated Use classifyAndRouteActionReference (action) instead. */
 export const classifyAndRouteTicketReference = makeFunctionReference<
 	"mutation",
 	{ ticketId: string },
@@ -72,5 +80,15 @@ export const rerouteTicketReference = makeFunctionReference<
 		};
 	}
 >("tickets:reroute");
+
+export const createTicketFromFormReference = makeFunctionReference<
+	"action",
+	{
+		requesterEmail: string | null;
+		subject: string | null;
+		body?: string | null;
+	},
+	{ ticketId: string }
+>("tickets:createTicketFromForm");
 
 export type { QueueWorkspace, ReviewWorkspace, TicketDetailWorkspace };

@@ -1,11 +1,12 @@
 "use client";
 
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 
 import {
 	regenerateTicketDraftReference,
 	type TicketDraftWorkspace,
+	upsertTicketDraftReference,
 } from "../../../../../packages/backend/convex/drafts_reference";
 import { sendApprovedReplyReference } from "../../../../../packages/backend/convex/replies_reference";
 
@@ -15,6 +16,7 @@ export type DraftReplyPanelViewState = {
 	status: string | null;
 	isSending: boolean;
 	isRegenerating: boolean;
+	isSavingDraft: boolean;
 	hasSent: boolean;
 };
 
@@ -22,7 +24,7 @@ function createDraftReplyPanelViewState(
 	ticketId: string,
 	draft: TicketDraftWorkspace,
 ): DraftReplyPanelViewState {
-	return { ticketId, draftState: draft, status: null, isSending: false, isRegenerating: false, hasSent: false };
+	return { ticketId, draftState: draft, status: null, isSending: false, isRegenerating: false, isSavingDraft: false, hasSent: false };
 }
 
 export function getDraftReplyPanelViewState({
@@ -33,12 +35,13 @@ export function getDraftReplyPanelViewState({
 	status,
 	isSending,
 	isRegenerating,
+	isSavingDraft,
 	hasSent,
 }: DraftReplyPanelViewState & { currentTicketId: string; nextDraft: TicketDraftWorkspace }) {
 	if (ticketId !== currentTicketId) {
 		return createDraftReplyPanelViewState(currentTicketId, nextDraft);
 	}
-	return { ticketId, draftState, status, isSending, isRegenerating, hasSent };
+	return { ticketId, draftState, status, isSending, isRegenerating, isSavingDraft, hasSent };
 }
 
 type DraftReplyPanelProps = {
@@ -51,14 +54,18 @@ type DraftReplyPanelProps = {
 export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPanelProps) {
 	const sendApproved = useAction(sendApprovedReplyReference);
 	const regenerateDraft = useAction(regenerateTicketDraftReference);
+	const upsertDraft = useMutation(upsertTicketDraftReference);
 	const [viewState, setViewState] = useState(() =>
 		createDraftReplyPanelViewState(ticketId, draft),
 	);
+	const [editSummary, setEditSummary] = useState(draft.summary);
+	const [editRecommendedAction, setEditRecommendedAction] = useState(draft.recommendedAction);
+	const [editDraftReply, setEditDraftReply] = useState(draft.draftReply);
 	const latestRegenerationRequestRef = useRef(0);
 	const currentTicketIdRef = useRef(ticketId);
 	currentTicketIdRef.current = ticketId;
 
-	const { draftState, status, isSending, isRegenerating, hasSent } =
+	const { draftState, status, isSending, isRegenerating, isSavingDraft, hasSent } =
 		getDraftReplyPanelViewState({ ...viewState, currentTicketId: ticketId, nextDraft: draft });
 	const canSend = Boolean(to && subject) && !hasSent && !isRegenerating;
 
@@ -68,6 +75,9 @@ export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPane
 				? { ...cur, draftState: draft }
 				: createDraftReplyPanelViewState(ticketId, draft),
 		);
+		setEditSummary(draft.summary);
+		setEditRecommendedAction(draft.recommendedAction);
+		setEditDraftReply(draft.draftReply);
 	}, [ticketId, draft]);
 
 	async function handleSend() {
@@ -75,9 +85,9 @@ export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPane
 		const reqTicketId = ticketId;
 		setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: reqTicketId, nextDraft: draft }), isSending: true, status: null }));
 		try {
-			const result = await sendApproved({ ticketId: reqTicketId, draftReply: draftState.draftReply });
+			const result = await sendApproved({ ticketId: reqTicketId, draftReply: editDraftReply });
 			if (currentTicketIdRef.current !== reqTicketId) return;
-			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: reqTicketId, nextDraft: draft }), hasSent: true, status: `Reply sent (${result.providerMessageId})` }));
+			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: reqTicketId, nextDraft: draft }), hasSent: true, status: "Reply sent" }));
 		} catch (error) {
 			if (currentTicketIdRef.current !== reqTicketId) return;
 			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: reqTicketId, nextDraft: draft }), status: error instanceof Error ? error.message : "Failed to send reply" }));
@@ -98,6 +108,9 @@ export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPane
 			const regenerated = await regenerateDraft({ ticketId });
 			if (latestRegenerationRequestRef.current !== reqId || currentTicketIdRef.current !== reqTicketId) return;
 			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: reqTicketId, nextDraft: draft }), draftState: regenerated }));
+			setEditSummary(regenerated.summary);
+			setEditRecommendedAction(regenerated.recommendedAction);
+			setEditDraftReply(regenerated.draftReply);
 		} catch (error) {
 			if (latestRegenerationRequestRef.current !== reqId || currentTicketIdRef.current !== reqTicketId) return;
 			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: reqTicketId, nextDraft: draft }), status: error instanceof Error ? error.message : "Failed to regenerate draft" }));
@@ -108,11 +121,25 @@ export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPane
 		}
 	}
 
-	const draftSections = [
-		{ label: "Conversation summary",  value: draftState.summary },
-		{ label: "Recommended action",    value: draftState.recommendedAction },
-		{ label: "Draft reply",           value: draftState.draftReply, pre: true },
-	];
+	async function handleSaveDraft() {
+		if (isSavingDraft) return;
+		setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: ticketId, nextDraft: draft }), isSavingDraft: true, status: null }));
+		try {
+			const saved = await upsertDraft({
+				ticketId,
+				summary: editSummary,
+				recommendedAction: editRecommendedAction,
+				draftReply: editDraftReply,
+				generationSource: draftState.generationSource,
+				usedFallback: draftState.usedFallback,
+				fallbackReason: draftState.fallbackReason,
+				generatedAt: draftState.generatedAt,
+			});
+			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: ticketId, nextDraft: draft }), draftState: saved, status: "Draft saved", isSavingDraft: false }));
+		} catch (error) {
+			setViewState((c) => ({ ...getDraftReplyPanelViewState({ ...c, currentTicketId: ticketId, nextDraft: draft }), status: error instanceof Error ? error.message : "Failed to save draft", isSavingDraft: false }));
+		}
+	}
 
 	return (
 		<div className="app-card p-5 flex flex-col gap-5">
@@ -121,14 +148,24 @@ export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPane
 				<div className="flex flex-col gap-2">
 					<p className="app-eyebrow app-eyebrow--violet">AI reply workspace</p>
 					<h3 className="app-h3">Summary & draft reply</h3>
-					<button
-						type="button"
-						onClick={() => void handleRegenerate()}
-						disabled={isRegenerating || isSending}
-						className="app-btn app-btn--sm w-fit"
-					>
-						{isRegenerating ? "Regenerating…" : "Regenerate draft"}
-					</button>
+					<div className="flex flex-wrap gap-2">
+						<button
+							type="button"
+							onClick={() => void handleRegenerate()}
+							disabled={isRegenerating || isSending}
+							className="app-btn app-btn--sm w-fit"
+						>
+							{isRegenerating ? "Regenerating…" : "Regenerate draft"}
+						</button>
+						<button
+							type="button"
+							onClick={() => void handleSaveDraft()}
+							disabled={isSavingDraft || isSending}
+							className="app-btn app-btn--sm w-fit"
+						>
+							{isSavingDraft ? "Saving…" : "Save draft"}
+						</button>
+					</div>
 				</div>
 				<span className="app-badge app-badge--pending" style={{ flexShrink: 0 }}>
 					{draftState.generatedAtLabel}
@@ -177,29 +214,50 @@ export function DraftReplyPanel({ ticketId, to, subject, draft }: DraftReplyPane
 				)}
 			</div>
 
-			{/* Content sections */}
+			{/* Editable content sections */}
 			<div className="flex flex-col gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "1rem" }}>
-				{draftSections.map(({ label, value, pre }) => (
-					<div key={label}>
-						<p className="app-field-label mb-2">{label}</p>
-						{pre ? (
-							<pre
-								style={{
-									fontFamily: "var(--font-dm-sans), sans-serif",
-									fontSize: "0.8rem",
-									lineHeight: 1.65,
-									color: "rgba(240,240,240,0.8)",
-									whiteSpace: "pre-wrap",
-									margin: 0,
-								}}
-							>
-								{value}
-							</pre>
-						) : (
-							<p className="app-body" style={{ fontSize: "0.8rem" }}>{value}</p>
-						)}
-					</div>
-				))}
+				<div>
+					<label htmlFor="draft-edit-summary" className="app-field-label mb-2 block">
+						Conversation summary
+					</label>
+					<textarea
+						id="draft-edit-summary"
+						value={editSummary}
+						onChange={(e) => setEditSummary(e.target.value)}
+						className="app-textarea"
+						rows={3}
+						style={{ fontSize: "0.8rem" }}
+						placeholder="Summary of the conversation"
+					/>
+				</div>
+				<div>
+					<label htmlFor="draft-edit-action" className="app-field-label mb-2 block">
+						Recommended action
+					</label>
+					<textarea
+						id="draft-edit-action"
+						value={editRecommendedAction}
+						onChange={(e) => setEditRecommendedAction(e.target.value)}
+						className="app-textarea"
+						rows={2}
+						style={{ fontSize: "0.8rem" }}
+						placeholder="Recommended next step"
+					/>
+				</div>
+				<div>
+					<label htmlFor="draft-edit-reply" className="app-field-label mb-2 block">
+						Draft reply
+					</label>
+					<textarea
+						id="draft-edit-reply"
+						value={editDraftReply}
+						onChange={(e) => setEditDraftReply(e.target.value)}
+						className="app-textarea"
+						rows={8}
+						style={{ fontFamily: "var(--font-dm-sans), sans-serif", fontSize: "0.8rem", lineHeight: 1.65, whiteSpace: "pre-wrap" }}
+						placeholder="Draft reply text"
+					/>
+				</div>
 			</div>
 
 			{draftState.usedFallback && (

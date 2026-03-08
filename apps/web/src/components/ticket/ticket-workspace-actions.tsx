@@ -1,11 +1,12 @@
 "use client";
 
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { createNoteReference } from "../../../../../packages/backend/convex/notes_reference";
 import { applyLeadReviewReference } from "../../../../../packages/backend/convex/review_reference";
+import { classifyAndRouteActionReference } from "../../../../../packages/backend/convex/tickets_reference";
 
 type AssigneeOption = {
 	id: string;
@@ -20,6 +21,9 @@ type TicketWorkspaceActionsProps = {
 	reviewState: string;
 	assignedWorkerId?: string | null;
 	recommendedAssigneeOptions: AssigneeOption[];
+	/** When true, lead cannot assign themselves — only agents in the dropdown */
+	isLead?: boolean;
+	currentUserId?: string | null;
 };
 
 export function TicketWorkspaceActions({
@@ -27,27 +31,41 @@ export function TicketWorkspaceActions({
 	reviewState,
 	assignedWorkerId,
 	recommendedAssigneeOptions,
+	isLead = false,
+	currentUserId = null,
 }: TicketWorkspaceActionsProps) {
 	const router = useRouter();
 	const createNote = useMutation(createNoteReference);
 	const applyLeadReview = useMutation(applyLeadReviewReference);
-	const [noteBody, setNoteBody] = useState("");
-	const [selectedAssigneeId, setSelectedAssigneeId] = useState(
-		assignedWorkerId ?? recommendedAssigneeOptions[0]?.id ?? "",
+	const classifyAndRoute = useAction(classifyAndRouteActionReference);
+	/** Lead can only assign agents, not themselves; filter out current user when lead */
+	const assigneeOptions = useMemo(
+		() =>
+			isLead && currentUserId != null
+				? recommendedAssigneeOptions.filter((opt) => opt.id !== currentUserId)
+				: recommendedAssigneeOptions,
+		[isLead, currentUserId, recommendedAssigneeOptions],
 	);
+	const [noteBody, setNoteBody] = useState("");
+	const initialAssignee =
+		assignedWorkerId && assigneeOptions.some((o) => o.id === assignedWorkerId)
+			? assignedWorkerId
+			: assigneeOptions[0]?.id ?? "";
+	const [selectedAssigneeId, setSelectedAssigneeId] = useState(initialAssignee);
 	const [status, setStatus] = useState<string | null>(null);
 	const [isSavingNote, setIsSavingNote] = useState(false);
 	const [isApplyingReview, setIsApplyingReview] = useState(false);
+	const [isClassifying, setIsClassifying] = useState(false);
 
 	const needsReview =
 		reviewState === "manager_verification" || reviewState === "manual_triage";
 	const canApprove = Boolean(selectedAssigneeId);
 
 	const recommendationSummary = useMemo(() => {
-		const top = recommendedAssigneeOptions[0];
+		const top = assigneeOptions[0];
 		if (!top) return "No recommended assignee available yet.";
 		return `${top.label} — ${top.skillMatchTier}, ${top.capacityRemaining} open slots`;
-	}, [recommendedAssigneeOptions]);
+	}, [assigneeOptions]);
 
 	async function handleAddNote() {
 		const body = noteBody.trim();
@@ -82,6 +100,21 @@ export function TicketWorkspaceActions({
 			setStatus(error instanceof Error ? error.message : "Failed to apply review");
 		} finally {
 			setIsApplyingReview(false);
+		}
+	}
+
+	async function handleReclassifyAndRoute() {
+		if (isClassifying) return;
+		setIsClassifying(true);
+		setStatus(null);
+		try {
+			await classifyAndRoute({ ticketId });
+			setStatus("Re-classified and routed");
+			router.refresh();
+		} catch (error) {
+			setStatus(error instanceof Error ? error.message : "Failed to re-classify and route");
+		} finally {
+			setIsClassifying(false);
 		}
 	}
 
@@ -129,12 +162,13 @@ export function TicketWorkspaceActions({
 				</div>
 
 				<select
+					aria-label="Select assignee"
 					value={selectedAssigneeId}
 					onChange={(e) => setSelectedAssigneeId(e.currentTarget.value)}
 					className="app-select"
 				>
 					<option value="">Select assignee</option>
-					{recommendedAssigneeOptions.map((opt) => (
+					{assigneeOptions.map((opt) => (
 						<option key={opt.id} value={opt.id}>
 							{opt.label} — {opt.skillMatchTier} — {opt.capacityRemaining} open
 						</option>
@@ -165,6 +199,17 @@ export function TicketWorkspaceActions({
 						Ticket is assignable without extra review.
 					</p>
 				)}
+
+				<div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+					<button
+						type="button"
+						onClick={() => void handleReclassifyAndRoute()}
+						disabled={isClassifying}
+						className="app-btn app-btn--sm"
+					>
+						{isClassifying ? "Re-classifying…" : "Re-classify and route"}
+					</button>
+				</div>
 			</div>
 
 			{status && (

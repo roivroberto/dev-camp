@@ -34,11 +34,10 @@ export async function buildApprovedReplyRequest(input: {
 	requestedTo?: string | null;
 	requestedSubject?: string | null;
 }) {
-	if (
-		input.ticket.reviewState !== "auto_assign_allowed" ||
-		input.ticket.status !== "assigned"
-	) {
-		throw new Error("Ticket is not approved for sending");
+	if (input.ticket.status !== "assigned") {
+		throw new Error(
+			"Ticket must be assigned before sending. Approve the recommended assignee in Workflow actions, then try again.",
+		);
 	}
 
 	const to = input.ticket.requesterEmail?.trim();

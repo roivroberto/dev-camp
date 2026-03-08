@@ -1,4 +1,5 @@
 import {
+	actionGeneric as action,
 	makeFunctionReference,
 	mutationGeneric as mutation,
 	queryGeneric as query,
@@ -7,6 +8,9 @@ import { ConvexError, v } from "convex/values";
 
 import type { AgentProfileSnapshot } from "./agent_profiles_reference";
 import { authComponent } from "./auth";
+import { INBOUND_MESSAGE_SOURCE, type InboundMessageSeed } from "./messages";
+import { getCurrentWorkspaceReference } from "./workspaces_reference";
+import { classifyAndRouteTicketReference } from "./tickets_reference";
 import type {
 	ClassifyTicketInput,
 	ClassifyTicketResult,
@@ -57,6 +61,10 @@ export type TicketDetailWorkspace = {
 	assignmentContext: string;
 	notes: TicketDetailNote[];
 	recommendedAssigneeOptions: RecommendedAssigneeOption[];
+	/** Current viewer's user id (for hiding send panel from leads, excluding self from assignee for leads) */
+	currentUserId?: string | null;
+	/** Current viewer's role in the workspace: lead can only assign others; only assigned agent can send reply */
+	viewerRole?: "lead" | "agent" | null;
 };
 
 export type QueueTicketRow = {
@@ -159,17 +167,6 @@ export const getReviewSnapshotReference = makeFunctionReference<
 	ReviewWorkspace
 >("tickets:getReviewSnapshot");
 
-export const classifyAndRouteTicketReference = makeFunctionReference<
-	"mutation",
-	{ ticketId: string },
-	{
-		classification: ClassifyTicketResult["classification"];
-		classificationSource: "provider" | "fallback";
-		fallbackReason: ClassifyTicketResult["fallbackReason"];
-		routingDecision: RoutingDecision;
-	}
->("tickets:classifyAndRoute");
-
 export const rerouteTicketReference = makeFunctionReference<
 	"mutation",
 	{ ticketId: string },
@@ -235,14 +232,73 @@ function formatRelativeTimeLabel(createdAt: number, now: number) {
 	return `${Math.floor(elapsedHours / 24)}d ago`;
 }
 
-function buildAssignmentContext(ticket: {
-	assignedWorkerId?: string | null;
-	reviewState?: string | null;
-	status?: string | null;
-	routingReason?: string | null;
-}) {
+function resolveUserDisplayName(
+	user: { name?: string | null; email?: string | null } | null,
+	userId: string,
+): string {
+	if (!user) return userId;
+	return (user.name && user.name.trim()) || user.email || userId;
+}
+
+async function getUserLabelsForWorkspace(
+	ctx: any,
+	workspaceId: any,
+): Promise<Record<string, string>> {
+	const memberships = await listWorkspaceMemberships(ctx, workspaceId);
+	const labels: Record<string, string> = {};
+	for (const m of memberships) {
+		try {
+			const user = await authComponent.getAnyUserById(ctx, m.userId);
+			labels[m.userId] = resolveUserDisplayName(user, m.userId);
+		} catch {
+			labels[m.userId] = m.userId;
+		}
+	}
+	return labels;
+}
+
+/** Turn technical routing reason into a short, human-readable sentence. */
+function formatRoutingReasonForDisplay(
+	reason: string | null | undefined,
+	userLabels: Record<string, string>,
+): string {
+	if (!reason || !reason.trim()) return "";
+	let out = reason
+		.replace(/\bskill:primary\b/gi, "primary skill match")
+		.replace(/\bskill:secondary\b/gi, "secondary skill match")
+		.replace(/\bskill:none\b/gi, "no skill match")
+		.replace(/\blanguage:(\w+)\b/gi, (_, lang) => `language ${lang}`)
+		.replace(/\blanguage_mismatch:(\w+)\b/gi, (_, lang) => `language mismatch (${lang})`)
+		.replace(/\bavailability:ready\b/gi, "available")
+		.replace(/\bavailability:at_capacity\b/gi, "at capacity")
+		.replace(/\bcapacity_remaining:(\d+)\b/gi, (_, n) => `${n} open slots`);
+	Object.entries(userLabels).forEach(([id, name]) => {
+		out = out.replace(new RegExp(id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), name);
+	});
+	out = out.replace(/\bRecommended\s+/i, "Recommended ");
+	out = out.replace(/\bbeat\s+/gi, "chosen over ");
+	out = out.replace(/\bon total_score\s*\([^)]+\)/gi, "on overall score");
+	out = out.replace(/\bon capacity_remaining\s*\([^)]+\)/gi, "on available capacity");
+	out = out.replace(/\bon worker_id tie-breaker/gi, "on tie-breaker");
+	out = out.replace(/\bis the only eligible recommendation/gi, "is the only eligible agent");
+	out = out.replace(/\bReview required\s*\([^)]+\)\.?\s*/gi, "Review required. ");
+	return out.trim();
+}
+
+function buildAssignmentContext(
+	ticket: {
+		assignedWorkerId?: string | null;
+		reviewState?: string | null;
+		status?: string | null;
+		routingReason?: string | null;
+	},
+	assignedWorkerLabel?: string | null,
+) {
+	if (ticket.assignedWorkerId && assignedWorkerLabel) {
+		return `Assigned to ${assignedWorkerLabel} based on the current routing decision.`;
+	}
 	if (ticket.assignedWorkerId) {
-		return `Assigned to ${ticket.assignedWorkerId} based on the current routing decision.`;
+		return "Assigned based on the current routing decision.";
 	}
 
 	if (ticket.reviewState === "manager_verification") {
@@ -254,7 +310,7 @@ function buildAssignmentContext(ticket: {
 	}
 
 	if (ticket.status === "assigned") {
-		return "Assignment is recorded, but the worker label is still unavailable.";
+		return "Assignment is recorded.";
 	}
 
 	return "Ready for routing once ownership is confirmed.";
@@ -492,6 +548,11 @@ export function buildTicketDetailWorkspace(input: {
 	}>;
 	recommendedAssigneeOptions: RecommendedAssigneeOption[];
 	now: number;
+	assignedWorkerLabel?: string | null;
+	assignmentContext?: string | null;
+	routingReason?: string | null;
+	currentUserId?: string | null;
+	viewerRole?: "lead" | "agent" | null;
 }): TicketDetailWorkspace {
 	return {
 		id: input.ticket._id,
@@ -504,10 +565,12 @@ export function buildTicketDetailWorkspace(input: {
 		classificationSource: input.ticket.classificationSource ?? undefined,
 		reviewState: input.ticket.reviewState ?? "manual_triage",
 		status: input.ticket.status ?? "new",
-		routingReason: input.ticket.routingReason ?? undefined,
+		routingReason: input.routingReason ?? input.ticket.routingReason ?? undefined,
 		assignedWorkerId: input.ticket.assignedWorkerId ?? null,
-		assignedWorkerLabel: input.ticket.assignedWorkerId ?? "Unassigned",
-		assignmentContext: buildAssignmentContext(input.ticket),
+		assignedWorkerLabel:
+			input.assignedWorkerLabel ?? input.ticket.assignedWorkerId ?? "Unassigned",
+		assignmentContext:
+			input.assignmentContext ?? buildAssignmentContext(input.ticket),
 		notes: input.notes.map((note) => ({
 			id: note._id,
 			body: note.body,
@@ -515,6 +578,8 @@ export function buildTicketDetailWorkspace(input: {
 			createdAtLabel: formatRelativeTimeLabel(note.createdAt, input.now),
 		})),
 		recommendedAssigneeOptions: input.recommendedAssigneeOptions,
+		currentUserId: input.currentUserId ?? null,
+		viewerRole: input.viewerRole ?? null,
 	};
 }
 
@@ -612,70 +677,83 @@ function createTicketStore(db: any): TicketStore<any, any> {
 	};
 }
 
-export async function classifyAndRouteTicket(ctx: any, ticketId: string) {
-	const ticket = await ctx.db.get(ticketId);
+/** Query for use by classifyAndRouteAction: returns ticket + message text. */
+export const getTicketAndMessageForClassification = query({
+	args: { ticketId: v.id("tickets") },
+	handler: async (ctx, args) => {
+		const { workspaceId } = await requireOperationalCoreWorkspace(ctx);
+		const ticket = await ctx.db.get(args.ticketId);
+		if (!ticket || ticket.workspaceId !== workspaceId) {
+			return null;
+		}
+		const message = ticket.messageId
+			? await ctx.db.get(ticket.messageId)
+			: null;
+		return {
+			subject: ticket.subject,
+			requesterEmail: ticket.requesterEmail,
+			messageText: message?.text ?? null,
+		};
+	},
+});
 
-	if (!ticket) {
-		throw new ConvexError("Ticket not found");
-	}
-
-	const { workspaceId } = await requireOperationalCoreWorkspace(ctx);
-
-	if (ticket.workspaceId !== workspaceId) {
-		throw new ConvexError("Forbidden");
-	}
-
-	const message = ticket.messageId ? await ctx.db.get(ticket.messageId) : null;
-	const classificationResult = (await ctx.runAction(classifyTicketReference, {
-		ticketId: String(ticket._id),
-		subject: ticket.subject,
-		requesterEmail: ticket.requesterEmail,
-		messageText: message?.text ?? null,
-		fallbackClassification: FALLBACK_TICKET_CLASSIFICATION,
-	})) as ClassifyTicketResult;
-	const policy = await readRoutingPolicyForWorkspace(ctx, workspaceId);
-	const workers = await buildRoutingWorkers(ctx, workspaceId, policy);
-	const routingDecision = routeTicket({
-		ticket: {
-			request_type: classificationResult.classification.request_type,
+/** Applies classification result and routing (no AI). Used by classifyAndRouteAction. */
+export const applyClassificationAndRouting = mutation({
+	args: {
+		ticketId: v.id("tickets"),
+		classification: v.object({
+			request_type: v.string(),
+			priority: v.string(),
+			classification_confidence: v.number(),
+		}),
+		classificationSource: v.union(
+			v.literal("provider"),
+			v.literal("fallback"),
+		),
+		fallbackReason: v.union(
+			v.literal("classifier_error"),
+			v.literal("invalid_schema"),
+			v.null(),
+		),
+	},
+	handler: async (ctx, args) => {
+		const ticket = await ctx.db.get(args.ticketId);
+		if (!ticket) {
+			throw new ConvexError("Ticket not found");
+		}
+		const { workspaceId } = await requireOperationalCoreWorkspace(ctx);
+		if (ticket.workspaceId !== workspaceId) {
+			throw new ConvexError("Forbidden");
+		}
+		const policy = await readRoutingPolicyForWorkspace(ctx, workspaceId);
+		const workers = await buildRoutingWorkers(ctx, workspaceId, policy);
+		const routingDecision = routeTicket({
+			ticket: {
+				request_type: args.classification.request_type,
+				language: resolveTicketLanguage(ticket.requesterEmail),
+				classification_confidence: args.classification.classification_confidence,
+			},
+			workers,
+			policy: {
+				autoAssignThreshold: policy.autoAssignThreshold,
+				manualTriageThreshold: 0.5,
+				allowSecondarySkills: policy.allowSecondarySkills,
+				requireLeadReview: policy.requireLeadReview,
+			},
+		});
+		const routingPatch = buildTicketRoutingPatch(routingDecision, Date.now());
+		await ctx.db.patch(args.ticketId, {
+			requestType: args.classification.request_type,
+			priority: args.classification.priority,
+			classificationConfidence: args.classification.classification_confidence,
+			classificationSource: args.classificationSource,
+			classificationFallbackReason: args.fallbackReason,
 			language: resolveTicketLanguage(ticket.requesterEmail),
-			classification_confidence:
-				classificationResult.classification.classification_confidence,
-		},
-		workers,
-		policy: {
-			autoAssignThreshold: policy.autoAssignThreshold,
-			manualTriageThreshold: 0.5,
-			allowSecondarySkills: policy.allowSecondarySkills,
-			requireLeadReview: policy.requireLeadReview,
-		},
-	});
-	const routingPatch = buildTicketRoutingPatch(routingDecision, Date.now());
-
-	await ctx.db.patch(ticket._id, {
-		requestType: classificationResult.classification.request_type,
-		priority: classificationResult.classification.priority,
-		classificationConfidence:
-			classificationResult.classification.classification_confidence,
-		classificationSource:
-			classificationResult.generationSource === "provider"
-				? "provider"
-				: "fallback",
-		classificationFallbackReason: classificationResult.fallbackReason,
-		language: resolveTicketLanguage(ticket.requesterEmail),
-		...routingPatch,
-	});
-
-	return {
-		classification: classificationResult.classification,
-		classificationSource:
-			classificationResult.generationSource === "provider"
-				? "provider"
-				: "fallback",
-		fallbackReason: classificationResult.fallbackReason,
-		routingDecision,
-	};
-}
+			...routingPatch,
+		});
+		return { routingDecision };
+	},
+});
 
 async function rerouteTicketWithoutClassification(ctx: any, ticketId: string) {
 	const ticket = await ctx.db.get(ticketId);
@@ -734,12 +812,16 @@ export const ingestInbound = mutation({
 	},
 });
 
+/** @deprecated Use classifyAndRouteAction (action) instead; mutations cannot call AI actions. */
 export const classifyAndRoute = mutation({
 	args: {
 		ticketId: v.id("tickets"),
 	},
-	handler: async (ctx, args) =>
-		classifyAndRouteTicket(ctx, String(args.ticketId)),
+	handler: async () => {
+		throw new ConvexError(
+			"Use classifyAndRouteAction (action) instead of this mutation.",
+		);
+	},
 });
 
 export const reroute = mutation({
@@ -767,28 +849,39 @@ export const getQueueSnapshot = query({
 			: tickets.filter(
 					(ticket: any) => ticket.assignedWorkerId === viewerUserId,
 				);
+		const userLabels = await getUserLabelsForWorkspace(ctx, workspaceId);
 		const rows = [...visibleTickets]
 			.sort(
 				(left: any, right: any) =>
 					(right.receivedAt ?? 0) - (left.receivedAt ?? 0),
 			)
 			.map(
-				(ticket: any): QueueTicketRow => ({
-					id: String(ticket._id),
-					title: ticket.subject ?? undefined,
-					requester: ticket.requesterEmail ?? undefined,
-					reason:
+				(ticket: any): QueueTicketRow => {
+					const rawReason =
 						ticket.routingReason ??
-						"Classification and routing are still being prepared.",
-					priority: mapPriorityForQueue(ticket.priority),
-					status: ticket.status ?? "new",
-					reviewState: ticket.reviewState ?? "manual_triage",
-					classificationConfidence: ticket.classificationConfidence ?? 0,
-					classificationSource: ticket.classificationSource ?? "fallback",
-					assignedWorkerLabel: ticket.assignedWorkerId ?? "Unassigned",
-					requestType: ticket.requestType ?? undefined,
-					decisionHref: `/tickets/${String(ticket._id)}`,
-				}),
+						"Classification and routing are still being prepared.";
+					const reasonHumanized = formatRoutingReasonForDisplay(
+						ticket.routingReason,
+						userLabels,
+					);
+					return {
+						id: String(ticket._id),
+						title: ticket.subject ?? undefined,
+						requester: ticket.requesterEmail ?? undefined,
+						reason: reasonHumanized || rawReason,
+						priority: mapPriorityForQueue(ticket.priority),
+						status: ticket.status ?? "new",
+						reviewState: ticket.reviewState ?? "manual_triage",
+						classificationConfidence: ticket.classificationConfidence ?? 0,
+						classificationSource: ticket.classificationSource ?? "fallback",
+						assignedWorkerLabel:
+							ticket.assignedWorkerId != null
+								? userLabels[ticket.assignedWorkerId] ?? ticket.assignedWorkerId
+								: "Unassigned",
+						requestType: ticket.requestType ?? undefined,
+						decisionHref: `/tickets/${String(ticket._id)}`,
+					};
+				},
 			);
 
 		return {
@@ -872,6 +965,57 @@ export const getDetail = query({
 			.collect();
 		const policy = await readRoutingPolicyForWorkspace(ctx, workspaceId);
 		const workers = await buildRoutingWorkers(ctx, workspaceId, policy);
+		const userLabels = await getUserLabelsForWorkspace(ctx, workspaceId);
+
+		const recommendedOptions = buildRecommendedAssigneeOptions({
+			ticket: {
+				_id: String(ticket._id),
+				subject: ticket.subject,
+				requesterEmail: ticket.requesterEmail,
+				requestType: ticket.requestType,
+				priority: ticket.priority,
+				classificationConfidence: ticket.classificationConfidence,
+				classificationSource: ticket.classificationSource,
+				assignedWorkerId: ticket.assignedWorkerId,
+				reviewState: ticket.reviewState,
+				status: ticket.status,
+				routingReason: ticket.routingReason,
+				receivedAt: ticket.receivedAt,
+				messageId: String(ticket.messageId),
+			},
+			workers,
+			policy,
+		}).map((opt) => ({
+			...opt,
+			label: userLabels[opt.id] ?? opt.label,
+		}));
+
+		const assignedWorkerLabel =
+			ticket.assignedWorkerId != null
+				? userLabels[ticket.assignedWorkerId] ?? ticket.assignedWorkerId
+				: "Unassigned";
+		const assignmentContext = buildAssignmentContext(
+			{
+				assignedWorkerId: ticket.assignedWorkerId,
+				reviewState: ticket.reviewState,
+				status: ticket.status,
+				routingReason: ticket.routingReason,
+			},
+			assignedWorkerLabel,
+		);
+		const routingReasonHumanized = formatRoutingReasonForDisplay(
+			ticket.routingReason,
+			userLabels,
+		);
+
+		const viewerMembership = viewerMemberships.find(
+			(m: { workspaceId: string }) => String(m.workspaceId) === String(workspaceId),
+		);
+		const currentUserId = viewerMembership?.userId ?? null;
+		const viewerRole =
+			viewerMembership?.role === "lead" || viewerMembership?.role === "agent"
+				? viewerMembership.role
+				: null;
 
 		return buildTicketDetailWorkspace({
 			ticket: {
@@ -893,26 +1037,139 @@ export const getDetail = query({
 				authorLabel: note.authorLabel,
 				createdAt: note.createdAt,
 			})),
-			recommendedAssigneeOptions: buildRecommendedAssigneeOptions({
-				ticket: {
-					_id: String(ticket._id),
-					subject: ticket.subject,
-					requesterEmail: ticket.requesterEmail,
-					requestType: ticket.requestType,
-					priority: ticket.priority,
-					classificationConfidence: ticket.classificationConfidence,
-					classificationSource: ticket.classificationSource,
-					assignedWorkerId: ticket.assignedWorkerId,
-					reviewState: ticket.reviewState,
-					status: ticket.status,
-					routingReason: ticket.routingReason,
-					receivedAt: ticket.receivedAt,
-					messageId: String(ticket.messageId),
-				},
-				workers,
-				policy,
-			}),
+			recommendedAssigneeOptions: recommendedOptions,
 			now: Date.now(),
+			assignedWorkerLabel,
+			assignmentContext,
+			routingReason: (routingReasonHumanized || ticket.routingReason) ?? undefined,
+			currentUserId,
+			viewerRole,
 		});
+	},
+});
+
+const getTicketAndMessageForClassificationReference = makeFunctionReference<
+	"query",
+	{ ticketId: string },
+	{ subject: string | null; requesterEmail: string | null; messageText: string | null } | null
+>("tickets:getTicketAndMessageForClassification");
+
+const applyClassificationAndRoutingReference = makeFunctionReference<
+	"mutation",
+	{
+		ticketId: string;
+		classification: {
+			request_type: string;
+			priority: string;
+			classification_confidence: number;
+		};
+		classificationSource: "provider" | "fallback";
+		fallbackReason: "classifier_error" | "invalid_schema" | null;
+	},
+	{ routingDecision: RoutingDecision }
+>("tickets:applyClassificationAndRouting");
+
+export const classifyAndRouteAction = action({
+	args: { ticketId: v.id("tickets") },
+	handler: async (ctx, args) => {
+		const ticketId = String(args.ticketId);
+		const data = await ctx.runQuery(
+			getTicketAndMessageForClassificationReference,
+			{ ticketId },
+		);
+		if (!data) {
+			throw new ConvexError("Ticket not found or access denied");
+		}
+		const classificationResult = (await ctx.runAction(classifyTicketReference, {
+			ticketId,
+			subject: data.subject,
+			requesterEmail: data.requesterEmail,
+			messageText: data.messageText,
+			fallbackClassification: FALLBACK_TICKET_CLASSIFICATION,
+		})) as ClassifyTicketResult;
+		await ctx.runMutation(applyClassificationAndRoutingReference, {
+			ticketId: args.ticketId,
+			classification: classificationResult.classification,
+			classificationSource:
+				classificationResult.generationSource === "provider"
+					? "provider"
+					: "fallback",
+			fallbackReason: classificationResult.fallbackReason,
+		});
+		return { ok: true };
+	},
+});
+
+const classifyAndRouteActionReference = makeFunctionReference<
+	"action",
+	{ ticketId: string },
+	{ ok: true }
+>("tickets:classifyAndRouteAction");
+
+const ingestInboundMessageReference = makeFunctionReference<
+	"mutation",
+	InboundMessageSeed,
+	{ messageId: string; created: boolean }
+>("messages:ingestInbound");
+
+const ingestInboundTicketReference = makeFunctionReference<
+	"mutation",
+	{
+		workspaceId: any;
+		source: typeof INBOUND_TICKET_SOURCE;
+		externalId: string;
+		messageId: string;
+		requesterEmail: string | null;
+		subject: string | null;
+		receivedAt: number;
+	},
+	{ ticketId: string; created: boolean }
+>("tickets:ingestInbound");
+
+export const createTicketFromForm = action({
+	args: {
+		requesterEmail: v.union(v.string(), v.null()),
+		subject: v.union(v.string(), v.null()),
+		body: v.optional(v.union(v.string(), v.null())),
+	},
+	handler: async (ctx, args) => {
+		const workspaceState = await ctx.runQuery(getCurrentWorkspaceReference, {});
+		const workspaceId = workspaceState?.workspace?.workspaceId;
+		if (!workspaceId) {
+			throw new ConvexError("No workspace. Join or create a workspace first.");
+		}
+		const idempotencyKey = crypto.randomUUID();
+		const externalId = crypto.randomUUID();
+		const receivedAt = Date.now();
+		const bodyText = args.body ?? args.subject ?? "";
+		const messageSeed: InboundMessageSeed = {
+			source: INBOUND_MESSAGE_SOURCE,
+			externalId,
+			idempotencyKey,
+			from: args.requesterEmail ?? null,
+			to: [],
+			subject: args.subject ?? null,
+			text: bodyText || null,
+			html: null,
+			receivedAt,
+			rawBody: bodyText,
+		};
+		const messageResult = (await ctx.runMutation(
+			ingestInboundMessageReference,
+			messageSeed,
+		)) as { messageId: string; created: boolean };
+		const ticketResult = (await ctx.runMutation(ingestInboundTicketReference, {
+			workspaceId,
+			source: INBOUND_TICKET_SOURCE,
+			externalId,
+			messageId: messageResult.messageId,
+			requesterEmail: args.requesterEmail ?? null,
+			subject: args.subject ?? null,
+			receivedAt,
+		})) as { ticketId: string; created: boolean };
+		await ctx.runAction(classifyAndRouteActionReference, {
+			ticketId: ticketResult.ticketId,
+		});
+		return { ticketId: ticketResult.ticketId };
 	},
 });

@@ -21,6 +21,15 @@ function reviewStateBadge(state: string | undefined): string {
 	return "app-badge app-badge--review";
 }
 
+function reviewStateLabel(state: string | undefined): string {
+	if (!state) return "";
+	const s = state.toLowerCase();
+	if (s === "auto_assign_allowed") return "Ready to assign";
+	if (s === "manager_verification") return "Needs review";
+	if (s === "manual_triage") return "Needs triage";
+	return state;
+}
+
 export function ReviewList({ items }: { items: ReviewItem[] }) {
 	if (items.length === 0) {
 		return (
@@ -66,7 +75,7 @@ export function ReviewList({ items }: { items: ReviewItem[] }) {
 						<div className="flex flex-col items-start gap-2 sm:items-end shrink-0">
 							{item.reviewState && (
 								<span className={reviewStateBadge(item.reviewState)}>
-									{item.reviewState}
+									{reviewStateLabel(item.reviewState)}
 								</span>
 							)}
 							<p style={{ fontFamily: "var(--font-dm-sans)", fontSize: "0.8rem", color: "rgba(240,240,240,0.6)" }}>

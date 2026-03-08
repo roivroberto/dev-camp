@@ -29,7 +29,7 @@ describe("TicketDetail", () => {
 			/>,
 		);
 
-		expect(screen.getByText("manager_verification")).toBeInTheDocument();
+		expect(screen.getByText("Needs review")).toBeInTheDocument();
 	});
 
 	it("renders assignment context and notes", () => {
@@ -69,11 +69,12 @@ describe("TicketDetail", () => {
 
 		expect(rendered.getByText("Escalated by policy rule")).toBeInTheDocument();
 		expect(rendered.getByText("billing_issue")).toBeInTheDocument();
-		expect(rendered.getByText("79% (provider)")).toBeInTheDocument();
+		expect(rendered.getByText("79%")).toBeInTheDocument();
+		expect(rendered.getByText("AI")).toBeInTheDocument();
 		expect(
 			rendered.getByText("Lead asked for a final verification pass."),
 		).toBeInTheDocument();
 		expect(rendered.getByText("Unassigned")).toBeInTheDocument();
-		expect(rendered.getByText("worker_1 is the current top recommendation (primary, 3 open slots).")).toBeInTheDocument();
+		expect(rendered.getByText("worker_1 — primary, 3 open slots")).toBeInTheDocument();
 	});
 });

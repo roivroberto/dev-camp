@@ -97,8 +97,7 @@
 	font-family: var(--font-jetbrains-mono), monospace;
 	font-size: 0.5625rem;
 	font-weight: 600;
-	letter-spacing: 0.12em;
-	text-transform: uppercase;
+	letter-spacing: 0.06em;
 	color: rgba(255, 255, 255, 0.2);
 }
 
@@ -177,8 +176,7 @@
 	font-family: var(--font-jetbrains-mono), monospace;
 	font-size: 0.6875rem;
 	font-weight: 500;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.02em;
 	color: rgba(240, 240, 240, 0.3);
 	transition: color 0.15s ease, background 0.15s ease;
 	text-align: left;
@@ -217,8 +215,7 @@
 	font-family: var(--font-jetbrains-mono), monospace;
 	font-size: 0.5625rem;
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
+	letter-spacing: 0.02em;
 	flex-shrink: 0;
 }
 
@@ -254,8 +251,7 @@
 	font-family: var(--font-jetbrains-mono), monospace;
 	font-size: 0.5625rem;
 	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.16em;
+	letter-spacing: 0.06em;
 	color: rgba(240, 240, 240, 0.3);
 }
 
@@ -298,8 +294,7 @@
 	font-family: var(--font-jetbrains-mono), monospace;
 	font-size: 0.625rem;
 	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
+	letter-spacing: 0.04em;
 	color: rgba(240, 240, 240, 0.4);
 }
 
@@ -451,8 +446,7 @@
 	font-family: var(--font-jetbrains-mono), monospace;
 	font-size: 0.5625rem;
 	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.12em;
+	letter-spacing: 0.06em;
 	color: rgba(240, 240, 240, 0.3);
 }
 

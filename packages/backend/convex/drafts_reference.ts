@@ -20,4 +20,19 @@ export const regenerateTicketDraftReference = makeFunctionReference<
 	TicketDraftWorkspace
 >("drafts:regenerateForTicket");
 
+export const upsertTicketDraftReference = makeFunctionReference<
+	"mutation",
+	{
+		ticketId: string;
+		summary: string;
+		recommendedAction: string;
+		draftReply: string;
+		generationSource: "provider" | "deterministic";
+		usedFallback: boolean;
+		fallbackReason: "generator_error" | "invalid_schema" | null;
+		generatedAt: number;
+	},
+	TicketDraftWorkspace
+>("drafts:upsertForTicket");
+
 export type { TicketDraftWorkspace };

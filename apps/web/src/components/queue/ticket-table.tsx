@@ -1,5 +1,7 @@
+"use client";
+
 import type { Route } from "next";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type TicketRow = {
 	id: string;
@@ -29,7 +31,24 @@ function statusBadgeClass(status: string | undefined): string {
 	return "app-badge app-badge--pending";
 }
 
+function statusLabel(status: string | undefined): string {
+	const s = (status ?? "new").toLowerCase();
+	if (s === "assigned") return "Assigned";
+	if (s === "reviewed") return "Reviewed";
+	if (s === "new") return "New";
+	return status ?? "New";
+}
+
+function priorityLabel(priority: string | undefined): string {
+	const p = (priority ?? "medium").toLowerCase();
+	if (p === "high") return "High";
+	if (p === "low") return "Low";
+	return "Medium";
+}
+
 export function TicketTable({ rows }: { rows: TicketRow[] }) {
+	const router = useRouter();
+
 	if (rows.length === 0) {
 		return (
 			<div className="app-card">
@@ -58,20 +77,17 @@ export function TicketTable({ rows }: { rows: TicketRow[] }) {
 								: null;
 						const confLow = conf !== null && conf < 75;
 
+						const href = row.decisionHref as Route | undefined;
 						return (
-							<tr key={row.id}>
+							<tr
+								key={row.id}
+								onClick={href ? () => router.push(href) : undefined}
+								style={href ? { cursor: "pointer" } : undefined}
+								className={href ? "app-table-row-clickable" : undefined}
+							>
 								{/* Ticket */}
 								<td>
-									{row.decisionHref ? (
-										<Link
-											href={row.decisionHref as Route}
-											className="app-table cell-link cell-primary"
-										>
-											{row.title ?? row.id}
-										</Link>
-									) : (
-										<span className="cell-primary">{row.title ?? row.id}</span>
-									)}
+									<span className="cell-primary">{row.title ?? row.id}</span>
 									{row.requester && (
 										<div className="cell-sub">{row.requester}</div>
 									)}
@@ -107,7 +123,7 @@ export function TicketTable({ rows }: { rows: TicketRow[] }) {
 									)}
 									{row.classificationSource === "fallback" && (
 										<div className="cell-sub" style={{ color: "#fbbf24" }}>
-											fallback
+											Fallback
 										</div>
 									)}
 								</td>
@@ -123,16 +139,16 @@ export function TicketTable({ rows }: { rows: TicketRow[] }) {
 								<td>
 									<span
 										className={`${priorityClass[row.priority ?? "medium"]}`}
-										style={{ fontFamily: "var(--font-jetbrains-mono)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}
+										style={{ fontFamily: "var(--font-jetbrains-mono)", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.04em" }}
 									>
-										{row.priority ?? "medium"}
+										{priorityLabel(row.priority)}
 									</span>
 								</td>
 
 								{/* Status */}
 								<td>
 									<span className={statusBadgeClass(row.status)}>
-										{row.status ?? "ready"}
+										{statusLabel(row.status)}
 									</span>
 									{row.assignedWorkerLabel && (
 										<div className="cell-sub" style={{ marginTop: "0.35rem" }}>

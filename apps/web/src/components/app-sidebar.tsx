@@ -44,9 +44,9 @@ export function AppSidebar() {
 
 	return (
 		<aside className="app-sidebar">
-			{/* Brand */}
+			{/* Brand — when logged in, logo is not a link so we stay in app */}
 			<div className="app-sidebar-brand">
-				<Link href="/">
+				{session ? (
 					<Image
 						src="/white_fylo.svg"
 						alt="Fylo"
@@ -56,7 +56,19 @@ export function AppSidebar() {
 						style={{ width: "auto", height: "20px" }}
 						priority
 					/>
-				</Link>
+				) : (
+					<Link href="/">
+						<Image
+							src="/white_fylo.svg"
+							alt="Fylo"
+							width={0}
+							height={0}
+							sizes="100vw"
+							style={{ width: "auto", height: "20px" }}
+							priority
+						/>
+					</Link>
+				)}
 			</div>
 
 			{/* Nav */}
@@ -98,7 +110,7 @@ export function AppSidebar() {
 					<div className="app-sidebar-user">
 						<div className="app-sidebar-identity">
 							<div className="flex items-center gap-1.5">
-								<span className={roleBadgeClass}>{role ?? "user"}</span>
+								<span className={roleBadgeClass}>{role === "lead" ? "Lead" : role === "agent" ? "Agent" : "User"}</span>
 							</div>
 							<span className="app-sidebar-name">{identity}</span>
 						</div>
