@@ -8,6 +8,7 @@ import { ConvexError, v } from "convex/values";
 
 import { authComponent } from "./auth";
 import { parseAgentResumeReference } from "./agent_profiles_reference";
+import { canManageWorkspaceMemberships } from "./lib/authz";
 import { requireSinglePilotWorkspaceMembership } from "./lib/pilot_workspace";
 
 export type AgentProfileSnapshot = {
@@ -31,9 +32,37 @@ export type CurrentAgentProfileWorkspace = {
 	profile: AgentProfileSnapshot | null;
 };
 
+export type TeamProfileDirectoryMember = {
+	userId: string;
+	role: "lead" | "agent";
+	profile: AgentProfileSnapshot | null;
+};
+
+export type TeamProfileDirectorySummary = {
+	totalMembers: number;
+	readyCount: number;
+	processingCount: number;
+	failedCount: number;
+	missingCount: number;
+};
+
+export type TeamProfileDirectoryWorkspace = {
+	workspaceId: string;
+	summary: TeamProfileDirectorySummary;
+	members: TeamProfileDirectoryMember[];
+};
+
 type CurrentProfileContext = {
 	workspaceId: any;
 	userId: string;
+};
+
+type CurrentWorkspaceMembership = {
+	_id: string;
+	workspaceId: any;
+	userId: string;
+	role: "lead" | "agent";
+	createdAt?: number;
 };
 
 type StoredAgentProfile = {
@@ -74,6 +103,12 @@ export const getCurrentAgentProfileForParseReference = makeFunctionReference<
 		resumeMimeType: string | null;
 	} | null
 >("agent_profiles:getCurrentForParse");
+
+export const getTeamProfileDirectoryReference = makeFunctionReference<
+	"query",
+	Record<string, never>,
+	TeamProfileDirectoryWorkspace
+>("agent_profiles:getTeamProfileDirectory");
 
 export const generateCurrentResumeUploadUrlReference = makeFunctionReference<
 	"mutation",
@@ -124,17 +159,24 @@ async function requireCurrentUser(ctx: any) {
 	return user;
 }
 
-async function requireCurrentProfileContext(ctx: any): Promise<CurrentProfileContext> {
+async function requireCurrentWorkspaceMembership(
+	ctx: any,
+): Promise<CurrentWorkspaceMembership> {
 	const user = await requireCurrentUser(ctx);
 	const memberships = await ctx.db
 		.query("memberships")
 		.withIndex("by_userId", (q: any) => q.eq("userId", String(user._id)))
 		.collect();
-	const membership = requireSinglePilotWorkspaceMembership(memberships);
+
+	return requireSinglePilotWorkspaceMembership(memberships) as CurrentWorkspaceMembership;
+}
+
+async function requireCurrentProfileContext(ctx: any): Promise<CurrentProfileContext> {
+	const membership = await requireCurrentWorkspaceMembership(ctx);
 
 	return {
 		workspaceId: membership.workspaceId,
-		userId: String(user._id),
+		userId: membership.userId,
 	};
 }
 
@@ -229,6 +271,65 @@ export const getCurrentForParse = query({
 			resumeStorageId: String(profile.resumeStorageId),
 			resumeFileName: profile.resumeFileName ?? null,
 			resumeMimeType: profile.resumeMimeType ?? null,
+		};
+	},
+});
+
+export const getTeamProfileDirectory = query({
+	args: {},
+	handler: async (ctx) => {
+		const membership = await requireCurrentWorkspaceMembership(ctx);
+
+		if (!canManageWorkspaceMemberships(membership.role)) {
+			throw new ConvexError("Forbidden");
+		}
+
+		const workspaceMemberships = (await ctx.db
+			.query("memberships")
+			.withIndex("by_workspaceId", (q: any) =>
+				q.eq("workspaceId", membership.workspaceId),
+			)
+			.collect()) as CurrentWorkspaceMembership[];
+		const profiles = (await ctx.db
+			.query("agentProfiles")
+			.withIndex("by_workspaceId", (q: any) =>
+				q.eq("workspaceId", membership.workspaceId),
+			)
+			.collect()) as StoredAgentProfile[];
+
+		const profileByUserId = new Map(
+			profiles.map((profile) => [profile.userId, toProfileSnapshot(profile)]),
+		);
+		const members = [...workspaceMemberships]
+			.sort((left, right) => {
+				const createdAtDelta = (left.createdAt ?? 0) - (right.createdAt ?? 0);
+
+				if (createdAtDelta !== 0) {
+					return createdAtDelta;
+				}
+
+				return left.userId.localeCompare(right.userId);
+			})
+			.map((workspaceMembership) => ({
+				userId: workspaceMembership.userId,
+				role: workspaceMembership.role,
+				profile: profileByUserId.get(workspaceMembership.userId) ?? null,
+			}));
+
+		return {
+			workspaceId: String(membership.workspaceId),
+			summary: {
+				totalMembers: members.length,
+				readyCount: members.filter((member) => member.profile?.parseStatus === "ready")
+					.length,
+				processingCount: members.filter(
+					(member) => member.profile?.parseStatus === "processing",
+				).length,
+				failedCount: members.filter((member) => member.profile?.parseStatus === "failed")
+					.length,
+				missingCount: members.filter((member) => member.profile == null).length,
+			},
+			members,
 		};
 	},
 });

@@ -1,6 +1,12 @@
+"use client";
+
 import type { Route } from "next";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useQuery } from "convex/react";
 import type React from "react";
+
+import { getCurrentWorkspaceReference } from "@Fylo/backend/convex/workspaces_reference";
 
 const sections: Array<{ href: Route; label: string; description: string }> = [
 	{
@@ -19,6 +25,11 @@ const sections: Array<{ href: Route; label: string; description: string }> = [
 		description: "Upload your resume and tune assignment fit.",
 	},
 	{
+		href: "/settings/team-profiles" as Route,
+		label: "Team profiles",
+		description: "Review resume coverage and routing readiness across the team.",
+	},
+	{
 		href: "/settings/policy" as Route,
 		label: "Policy",
 		description: "Tune routing thresholds and workload guardrails.",
@@ -35,6 +46,14 @@ export default function AppLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const pathname = usePathname();
+	const workspace = useQuery(getCurrentWorkspaceReference, {});
+	const visibleSections = sections.filter(
+		(section) =>
+			String(section.href) !== "/settings/team-profiles" ||
+			workspace?.workspace?.role === "lead",
+	);
+
 	return (
 		<main className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
 			<section className="border bg-card text-card-foreground">
@@ -51,20 +70,21 @@ export default function AppLayout({
 							decision visibility.
 						</p>
 					</div>
-					<div className="flex flex-wrap gap-2">
-						{sections.map((section) => (
+					<nav aria-label="Primary sections" className="flex flex-wrap gap-2">
+						{visibleSections.map((section) => (
 							<Link
 								key={section.href}
 								href={section.href}
-								className="border px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+								aria-current={pathname === section.href ? "page" : undefined}
+								className="border px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-card"
 							>
 								{section.label}
 							</Link>
 						))}
-					</div>
+					</nav>
 				</div>
 				<div className="grid gap-px border-t bg-border sm:grid-cols-2 xl:grid-cols-4">
-					{sections.map((section) => (
+					{visibleSections.map((section) => (
 						<div
 							key={section.href}
 							className="bg-card px-5 py-3 text-sm text-muted-foreground"
