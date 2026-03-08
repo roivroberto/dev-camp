@@ -80,6 +80,8 @@ export function buildTeamVisibilitySnapshot(input: {
 		assignedWorkerId?: string | null;
 		reviewState?: string | null;
 	}>;
+	/** Optional map of userId -> display name (e.g. from auth). Falls back to userId if missing. */
+	userLabels?: Record<string, string>;
 }): TeamVisibilityWorkspace {
 	const memberIds = new Set(
 		input.memberships.map((membership) => membership.userId),
@@ -106,16 +108,26 @@ export function buildTeamVisibilitySnapshot(input: {
 					ticket.reviewState === "manager_verification" &&
 					ticket.assignedWorkerId === workspaceMembership.userId,
 			).length;
+			const label =
+				input.userLabels?.[workspaceMembership.userId] ?? workspaceMembership.userId;
 
 			return toTeamCard({
 				id: String(workspaceMembership._id),
-				label: workspaceMembership.userId,
+				label,
 				role: workspaceMembership.role,
 				assignedCount,
 				reviewCount,
 			});
 		}),
 	};
+}
+
+function resolveUserDisplayName(
+	user: { name?: string | null; email?: string | null } | null,
+	userId: string,
+): string {
+	if (!user) return userId;
+	return (user.name && user.name.trim()) || user.email || userId;
 }
 
 export const getTeamVisibility = query({
@@ -130,6 +142,16 @@ export const getTeamVisibility = query({
 			.collect();
 		const tickets = await ctx.db.query("tickets").collect();
 
+		const userLabels: Record<string, string> = {};
+		for (const m of workspaceMemberships) {
+			try {
+				const user = await authComponent.getAnyUserById(ctx, m.userId);
+				userLabels[m.userId] = resolveUserDisplayName(user, m.userId);
+			} catch {
+				userLabels[m.userId] = m.userId;
+			}
+		}
+
 		return buildTeamVisibilitySnapshot({
 			workspaceId: String(membership.workspaceId),
 			memberships: workspaceMemberships.map((workspaceMembership) => ({
@@ -141,6 +163,7 @@ export const getTeamVisibility = query({
 				assignedWorkerId: ticket.assignedWorkerId,
 				reviewState: ticket.reviewState,
 			})),
+			userLabels,
 		});
 	},
 });

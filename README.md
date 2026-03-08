@@ -74,10 +74,20 @@ bunx convex env set RESEND_WEBHOOK_SECRET <your-resend-webhook-secret>
 bunx convex env set SUPPORT_INBOX_EMAIL support@fyloph.com
 ```
 
+Optional (needed for AI features: resume parsing, draft generation, ticket classification):
+
+```bash
+bunx convex env set AI_PROVIDER_API_KEY <your-google-ai-api-key>
+# Optional: resume parser model (default: gemini-2.5-flash)
+bunx convex env set AI_RESUME_MODEL gemini-2.5-flash
+```
+
+**Important:** Convex actions run in the cloud and do **not** read your local `.env.local`. You must set `AI_PROVIDER_API_KEY` (and any other keys used by actions) with `convex env set` so the deployment can use them.
+
 Notes:
 
-- `AI_PROVIDER_API_KEY` enables provider-backed draft generation and ticket classification through Google hosted models. The current default model is `gemma-3-27b-it`.
-- If `AI_PROVIDER_API_KEY` is missing or the provider response is unusable, the classification and draft paths fall back to deterministic output and persist the fallback metadata.
+- `AI_PROVIDER_API_KEY` enables provider-backed draft generation, ticket classification, and resume parsing through Google AI (e.g. Gemini). Resume parsing uses a multimodal model (e.g. `gemini-2.5-flash`); other features may use different defaults.
+- If `AI_PROVIDER_API_KEY` is missing or the provider response is unusable, the classification and draft paths fall back to deterministic output and persist the fallback metadata; resume parsing will fail with "AI_PROVIDER_API_KEY is required".
 - The app runs on port `3001` in dev (`apps/web/package.json`).
 
 ## 3) Initialize Convex and database (first run)

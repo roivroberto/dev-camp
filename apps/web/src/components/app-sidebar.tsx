@@ -19,7 +19,7 @@ type NavItem = {
 const LEAD_NAV: NavItem[] = [
 	{ href: "/queue",            label: "Queue",      icon: Inbox       },
 	{ href: "/review",           label: "Review",     icon: ShieldAlert },
-	{ href: "/visibility",       label: "Visibility", icon: BarChart3   },
+	{ href: "/visibility",       label: "Team management", icon: BarChart3 },
 	{ href: "/settings/policy",  label: "Policy",     icon: Settings2   },
 ];
 

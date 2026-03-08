@@ -4,6 +4,7 @@ import {
 	generateCurrentResumeUploadUrlReference,
 	parseCurrentResumeReference,
 	saveCurrentResumeUploadReference,
+	type AgentProfileSnapshot,
 } from "@Fylo/backend/convex/agent_profiles_reference";
 import { joinWithPodCodeReference } from "@Fylo/backend/convex/memberships_reference";
 import {
@@ -67,6 +68,7 @@ export default function OnboardingPage() {
 
 	const [resumeFile, setResumeFile] = useState<File | null>(null);
 	const [podCodeInput, setPodCodeInput] = useState("");
+	const [resumeParseResult, setResumeParseResult] = useState<AgentProfileSnapshot | null>(null);
 
 	const ensureOnboardingWorkspace = useMutation(
 		ensureOnboardingWorkspaceReference,
@@ -182,7 +184,8 @@ export default function OnboardingPage() {
 						resumeFileName: resumeFile.name,
 						resumeMimeType: resumeFile.type,
 					});
-					void parseResume({});
+					const parsed = await parseResume({});
+					setResumeParseResult(parsed);
 				} catch {
 					// Resume upload is non-fatal — agent can re-upload from settings
 				}
@@ -413,8 +416,13 @@ export default function OnboardingPage() {
 						</div>
 						<p className="onboarding-loading">
 							Joining workspace
-							{resumeFile ? " and uploading resume" : ""}…
+							{resumeFile ? " and uploading resume…" : "…"}
 						</p>
+						{resumeFile && (
+							<p className="onboarding-loading" style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
+								AI will read your resume and extract skills for routing.
+							</p>
+						)}
 					</div>
 				)}
 
@@ -427,10 +435,36 @@ export default function OnboardingPage() {
 							<p className="onboarding-sub">
 								You've joined <strong>{joinedWorkspaceName}</strong>.
 								{resumeFile
-									? " Your resume is being parsed for skill-based routing."
+									? resumeParseResult?.parseStatus === "ready"
+										? " Your resume was parsed; AI extracted your skills for routing."
+										: resumeParseResult?.parseStatus === "failed"
+											? " Your resume was uploaded; parsing had an issue. You can re-upload from profile settings."
+											: " Your resume was uploaded for skill-based routing."
 									: " You can upload a resume later from your profile settings."}
 							</p>
 						</div>
+						{resumeFile && resumeParseResult?.parseStatus === "ready" && (
+							<div
+								className="onboarding-sub"
+								style={{
+									marginTop: "0.5rem",
+									padding: "0.75rem 1rem",
+									background: "rgba(255,255,255,0.06)",
+									borderRadius: "6px",
+									fontSize: "0.85rem",
+								}}
+							>
+								<p style={{ fontWeight: 600, marginBottom: "0.25rem" }}>What the AI did</p>
+								<p>
+									{resumeParseResult.parseSource === "provider"
+										? "Primary AI extracted your skills from the resume."
+										: "Fallback parser was used to extract your skills."}
+								</p>
+								<p style={{ marginTop: "0.5rem", opacity: 0.85 }}>
+									{resumeParseResult.primarySkills.length} primary skill{resumeParseResult.primarySkills.length !== 1 ? "s" : ""}, {resumeParseResult.secondarySkills.length} secondary, {resumeParseResult.languages.length} language{resumeParseResult.languages.length !== 1 ? "s" : ""} will be used for ticket routing.
+								</p>
+							</div>
+						)}
 
 						<Button
 							className="onboarding-continue"

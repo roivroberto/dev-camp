@@ -52,15 +52,17 @@ function parseGeminiCandidateText(payload: GeminiResponsePayload) {
 
 export function createGeminiResumeParser(options: GeminiResumeParserOptions) {
 	const fetchImpl = options.fetchImpl ?? fetch;
-	const model = options.model ?? "gemma-3-27b-it";
+	// Use a multimodal model that supports PDF inlineData (e.g. gemini-2.5-flash, gemini-1.5-flash)
+	const model = options.model ?? "gemini-2.5-flash";
 
 	return async function parseResume(input: GeminiResumeParserInput) {
 		if (!options.apiKey) {
 			throw new Error("AI_PROVIDER_API_KEY is required");
 		}
 
+		const apiVersion = "v1";
 		const response = await fetchImpl(
-			`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${options.apiKey}`,
+			`https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${options.apiKey}`,
 			{
 				method: "POST",
 				headers: {
@@ -90,13 +92,19 @@ export function createGeminiResumeParser(options: GeminiResumeParserOptions) {
 			},
 		);
 
+		const responseJson = (await response.json()) as GeminiResponsePayload & {
+			error?: { message?: string; code?: number; status?: string };
+		};
+
 		if (!response.ok) {
-			throw new Error(`Gemini resume parsing failed with status ${response.status}`);
+			const errMsg =
+				responseJson?.error?.message ??
+				(responseJson as { error?: { message?: string } })?.error?.message ??
+				`HTTP ${response.status}`;
+			throw new Error(`Gemini API: ${errMsg}`);
 		}
 
-		return parseGeminiCandidateText(
-			(await response.json()) as GeminiResponsePayload,
-		);
+		return parseGeminiCandidateText(responseJson as GeminiResponsePayload);
 	};
 }
 
@@ -105,5 +113,6 @@ export function createGeminiResumeParserFromEnv(
 ) {
 	return createGeminiResumeParser({
 		apiKey: env.AI_PROVIDER_API_KEY ?? "",
+		model: env.AI_RESUME_MODEL ?? undefined,
 	});
 }

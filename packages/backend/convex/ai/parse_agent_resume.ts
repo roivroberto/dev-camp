@@ -18,6 +18,8 @@ export type ParseAgentResumeResult = {
 	generationSource: "provider" | "fallback";
 	usedFallback: boolean;
 	fallbackReason: "parser_error" | "invalid_schema" | null;
+	/** When fallback/error, the underlying error message from the parser or schema. */
+	parseErrorMessage?: string;
 };
 
 export async function parseAgentResumeWithFallback(
@@ -25,7 +27,8 @@ export async function parseAgentResumeWithFallback(
 	input: ParseAgentResumeInput,
 ): Promise<ParseAgentResumeResult> {
 	try {
-		const parsed = parseAgentProfile(await parser(input));
+		const raw = await parser(input);
+		const parsed = parseAgentProfile(raw);
 		if (parsed) {
 			return {
 				profile: parsed,
@@ -34,21 +37,24 @@ export async function parseAgentResumeWithFallback(
 				fallbackReason: null,
 			};
 		}
-	} catch {
+		return {
+			profile: null,
+			generationSource: "fallback",
+			usedFallback: true,
+			fallbackReason: "invalid_schema",
+			parseErrorMessage: "AI response did not match required schema (skills, languages, summary).",
+		};
+	} catch (err) {
+		const message =
+			err instanceof Error ? err.message : err != null ? String(err) : "Unknown error";
 		return {
 			profile: null,
 			generationSource: "fallback",
 			usedFallback: true,
 			fallbackReason: "parser_error",
+			parseErrorMessage: message,
 		};
 	}
-
-	return {
-		profile: null,
-		generationSource: "fallback",
-		usedFallback: true,
-		fallbackReason: "invalid_schema",
-	};
 }
 
 async function runResumeParser(input: ParseAgentResumeInput) {

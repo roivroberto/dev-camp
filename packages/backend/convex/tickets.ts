@@ -755,17 +755,18 @@ export const getQueueSnapshot = query({
 	handler: async (ctx) => {
 		const { memberships: viewerMemberships, workspaceId } =
 			await requireOperationalCoreWorkspace(ctx);
-		const workspaceMemberships = await listWorkspaceMemberships(ctx, workspaceId);
-		const memberIds = new Set(
-			workspaceMemberships.map((membership: any) => membership.userId),
-		);
+		const viewer = viewerMemberships[0] as { userId: string; role: string } | undefined;
+		const isLead = viewer?.role === "lead";
+		const viewerUserId = viewer?.userId;
+
 		const tickets = ((await ctx.db.query("tickets").collect()) as any[]).filter(
 			(ticket) => ticket.workspaceId === workspaceId,
 		);
-		const visibleTickets = tickets.filter(
-			(ticket) =>
-				ticket.assignedWorkerId == null || memberIds.has(ticket.assignedWorkerId),
-		);
+		const visibleTickets = isLead
+			? tickets
+			: tickets.filter(
+					(ticket: any) => ticket.assignedWorkerId === viewerUserId,
+				);
 		const rows = [...visibleTickets]
 			.sort(
 				(left: any, right: any) =>

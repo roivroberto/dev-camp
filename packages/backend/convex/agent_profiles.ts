@@ -460,7 +460,13 @@ export async function parseCurrentResumeHandler(ctx: any) {
 		});
 	}
 
-	const resumeBase64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
+	const arrayBuffer = await blob.arrayBuffer();
+	const bytes = new Uint8Array(arrayBuffer);
+	let binary = "";
+	for (let i = 0; i < bytes.byteLength; i++) {
+		binary += String.fromCharCode(bytes[i]!);
+	}
+	const resumeBase64 = btoa(binary);
 	const parsed = await ctx.runAction(parseAgentResumeReference, {
 		resumeFileName: current.resumeFileName,
 		resumeMimeType: current.resumeMimeType,
@@ -482,9 +488,10 @@ export async function parseCurrentResumeHandler(ctx: any) {
 		parseSource: parsed.generationSource,
 		parseFallbackReason: parsed.fallbackReason,
 		parseError:
-			parsed.fallbackReason === "invalid_schema"
+			parsed.parseErrorMessage ??
+			(parsed.fallbackReason === "invalid_schema"
 				? "Resume parsing returned invalid structured data"
-				: "Resume parsing failed",
+				: "Resume parsing failed"),
 	});
 }
 

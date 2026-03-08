@@ -56,7 +56,7 @@ export default function VisibilityPage() {
 		return (
 			<section className="flex flex-col gap-5">
 				<div className="app-card p-5">
-					<p className="app-eyebrow app-eyebrow--violet mb-2">Team visibility</p>
+					<p className="app-eyebrow app-eyebrow--violet mb-2">Team management</p>
 					<h1 className="app-h2 mb-2">Join a workspace first</h1>
 					<p className="app-body">
 						Create or join a workspace to see team workload and review pressure.
@@ -71,7 +71,7 @@ export default function VisibilityPage() {
 		<section className="flex flex-col gap-5">
 			<div className="grid gap-4 lg:grid-cols-[1fr_auto]">
 				<div className="app-card p-5">
-					<p className="app-eyebrow app-eyebrow--violet mb-2">Team visibility</p>
+					<p className="app-eyebrow app-eyebrow--violet mb-2">Team management</p>
 					<h1 className="app-h2 mb-2">Workload at a glance</h1>
 					<p className="app-body">
 						Capacity and review pressure in one view. Spot hotspots before
@@ -110,7 +110,7 @@ export default function VisibilityPage() {
 				<WorkloadCards cards={workloadCards} />
 			) : (
 				<div className="app-card">
-					<p className="app-loading">Loading team visibility…</p>
+					<p className="app-loading">Loading team management…</p>
 				</div>
 			)}
 		</section>
