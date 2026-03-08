@@ -145,72 +145,74 @@ export function TicketWorkspaceActions({
 				</button>
 			</div>
 
-			{/* Assignee + review actions */}
-			<div
-				className="flex flex-col gap-3 p-4"
-				style={{
-					background: "rgba(167,139,250,0.04)",
-					border: "1px solid rgba(167,139,250,0.15)",
-					borderRadius: "4px",
-				}}
-			>
-				<div>
-					<p className="app-field-label mb-1">Recommended assignee</p>
-					<p className="app-body" style={{ fontSize: "0.8rem", color: "#f0f0f0" }}>
-						{recommendationSummary}
-					</p>
-				</div>
-
-				<select
-					aria-label="Select assignee"
-					value={selectedAssigneeId}
-					onChange={(e) => setSelectedAssigneeId(e.currentTarget.value)}
-					className="app-select"
+			{/* Assignee + review actions — only leads can assign */}
+			{isLead && (
+				<div
+					className="flex flex-col gap-3 p-4"
+					style={{
+						background: "rgba(167,139,250,0.04)",
+						border: "1px solid rgba(167,139,250,0.15)",
+						borderRadius: "4px",
+					}}
 				>
-					<option value="">Select assignee</option>
-					{assigneeOptions.map((opt) => (
-						<option key={opt.id} value={opt.id}>
-							{opt.label} — {opt.skillMatchTier} — {opt.capacityRemaining} open
-						</option>
-					))}
-				</select>
+					<div>
+						<p className="app-field-label mb-1">Recommended assignee</p>
+						<p className="app-body" style={{ fontSize: "0.8rem", color: "#f0f0f0" }}>
+							{recommendationSummary}
+						</p>
+					</div>
 
-				{needsReview ? (
-					<div className="flex flex-wrap gap-2">
+					<select
+						aria-label="Select assignee"
+						value={selectedAssigneeId}
+						onChange={(e) => setSelectedAssigneeId(e.currentTarget.value)}
+						className="app-select"
+					>
+						<option value="">Select assignee</option>
+						{assigneeOptions.map((opt) => (
+							<option key={opt.id} value={opt.id}>
+								{opt.label} — {opt.skillMatchTier} — {opt.capacityRemaining} open
+							</option>
+						))}
+					</select>
+
+					{needsReview ? (
+						<div className="flex flex-wrap gap-2">
+							<button
+								type="button"
+								onClick={() => void handleReviewAction("approve")}
+								disabled={isApplyingReview || !canApprove}
+								className="app-btn app-btn--primary app-btn--sm"
+							>
+								{isApplyingReview ? "Applying…" : "Approve assignment"}
+							</button>
+							<button
+								type="button"
+								onClick={() => void handleReviewAction("reassign")}
+								disabled={isApplyingReview}
+								className="app-btn app-btn--sm"
+							>
+								{isApplyingReview ? "Applying…" : "Re-run routing"}
+							</button>
+						</div>
+					) : (
+						<p className="app-body" style={{ fontSize: "0.75rem" }}>
+							Ticket is assignable without extra review.
+						</p>
+					)}
+
+					<div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
 						<button
 							type="button"
-							onClick={() => void handleReviewAction("approve")}
-							disabled={isApplyingReview || !canApprove}
-							className="app-btn app-btn--primary app-btn--sm"
-						>
-							{isApplyingReview ? "Applying…" : "Approve assignment"}
-						</button>
-						<button
-							type="button"
-							onClick={() => void handleReviewAction("reassign")}
-							disabled={isApplyingReview}
+							onClick={() => void handleReclassifyAndRoute()}
+							disabled={isClassifying}
 							className="app-btn app-btn--sm"
 						>
-							{isApplyingReview ? "Applying…" : "Re-run routing"}
+							{isClassifying ? "Re-classifying…" : "Re-classify and route"}
 						</button>
 					</div>
-				) : (
-					<p className="app-body" style={{ fontSize: "0.75rem" }}>
-						Ticket is assignable without extra review.
-					</p>
-				)}
-
-				<div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-					<button
-						type="button"
-						onClick={() => void handleReclassifyAndRoute()}
-						disabled={isClassifying}
-						className="app-btn app-btn--sm"
-					>
-						{isClassifying ? "Re-classifying…" : "Re-classify and route"}
-					</button>
 				</div>
-			</div>
+			)}
 
 			{status && (
 				<p
