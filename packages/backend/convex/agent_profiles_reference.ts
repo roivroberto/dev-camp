@@ -1,6 +1,12 @@
 import { makeFunctionReference } from "convex/server";
 
-import type { AgentProfileSnapshot, CurrentAgentProfileWorkspace } from "./agent_profiles";
+import type {
+	AgentProfileSnapshot,
+	CurrentAgentProfileWorkspace,
+	TeamProfileDirectoryMember,
+	TeamProfileDirectorySummary,
+	TeamProfileDirectoryWorkspace,
+} from "./agent_profiles";
 import type { ParseAgentResumeResult } from "./ai/parse_agent_resume";
 
 export const getCurrentAgentProfileReference = makeFunctionReference<
@@ -14,6 +20,12 @@ export const generateCurrentResumeUploadUrlReference = makeFunctionReference<
 	Record<string, never>,
 	string
 >("agent_profiles:generateResumeUploadUrl");
+
+export const getTeamProfileDirectoryReference = makeFunctionReference<
+	"query",
+	Record<string, never>,
+	TeamProfileDirectoryWorkspace
+>("agent_profiles:getTeamProfileDirectory");
 
 export const saveCurrentResumeUploadReference = makeFunctionReference<
 	"mutation",
@@ -41,4 +53,10 @@ export const parseAgentResumeReference = makeFunctionReference<
 	ParseAgentResumeResult
 >("ai/parse_agent_resume:parseAgentResume");
 
-export type { AgentProfileSnapshot, CurrentAgentProfileWorkspace };
+export type {
+	AgentProfileSnapshot,
+	CurrentAgentProfileWorkspace,
+	TeamProfileDirectoryMember,
+	TeamProfileDirectorySummary,
+	TeamProfileDirectoryWorkspace,
+};
