@@ -1,30 +1,87 @@
 # Fylo
 
-Fylo is a Turborepo webapp with a Next.js frontend (`apps/web`) and a Convex backend (`packages/backend`) using Better Auth.
+### An AI-driven ticket management and routing system built for high-performance support teams.
 
-This README covers first-time setup, Convex database initialization, environment variables, running locally, and test commands.
+[![Language](https://img.shields.io/github/languages/top/roivroberto/fylo-support-intelligence)](https://github.com/roivroberto/fylo-support-intelligence)
+[![Repo size](https://img.shields.io/github/repo-size/roivroberto/fylo-support-intelligence)](https://github.com/roivroberto/fylo-support-intelligence)
+[![Last commit](https://img.shields.io/github/last-commit/roivroberto/fylo-support-intelligence)](https://github.com/roivroberto/fylo-support-intelligence)
+[![Stars](https://img.shields.io/github/stars/roivroberto/fylo-support-intelligence?style=social)](https://github.com/roivroberto/fylo-support-intelligence)
+[![Forks](https://img.shields.io/github/forks/roivroberto/fylo-support-intelligence?style=social)](https://github.com/roivroberto/fylo-support-intelligence)
+[![License](https://img.shields.io/github/license/roivroberto/fylo-support-intelligence)](https://github.com/roivroberto/fylo-support-intelligence)
 
-## Prerequisites
+## Demo
 
-- Bun `1.3.9` (matches `packageManager` in `package.json`)
-- Node `22+` (used in CI and required by Playwright tooling)
-- A Convex account (for backend deployment/config)
+![Demo](assets/demo.png)
 
-## 1) Install dependencies
+*Replace with a real screenshot or GIF of the project in action.*
 
-From the repository root:
+## About
 
+Fylo is a modern, full-stack support operations platform that leverages artificial intelligence to streamline ticket ingestion, classification, and resolution. Built with a focus on speed and scalability, it automates the heavy lifting of triage so support teams can focus on high-impact customer interactions.
+
+This project showcases a robust monorepo architecture, integrating real-time backend functions with a highly responsive frontend, all powered by a cutting-edge AI stack.
+
+## Tech Stack
+
+- **Frontend:** Next.js (App Router), React 19, Tailwind CSS v4, Framer Motion, Shadcn UI
+- **Backend:** Convex (Real-time database & serverless functions)
+- **Authentication:** Better Auth
+- **AI/ML:** Google Gemini (Classification, Draft Generation, Resume Parsing)
+- **Infrastructure:** Turborepo, Bun
+- **Communication:** Resend (Email Infrastructure)
+- **Testing:** Vitest, Playwright (E2E)
+
+## Features
+
+- **🚀 AI-Powered Triage:** Automatically classifies and routes incoming tickets based on sentiment, priority, and intent.
+- **✍️ Intelligent Drafts:** Generates context-aware reply drafts using Gemini to accelerate response times.
+- **📄 Resume Parsing:** Extracts key agent skills and experience from resumes to optimize team assignments.
+- **⏱️ Real-time Queue:** A live-updating ticket dashboard that reflects routing state and workload distribution instantly.
+- **🛡️ Multi-tier Workflow:** Structured review and visibility layers for managers to ensure quality and balance across the team.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- [Bun](https://bun.sh/) `1.3.9`
+- [Node.js](https://nodejs.org/) `22+`
+- A [Convex](https://www.convex.dev/) account
+
+### Installation & Setup
+
+1. **Install dependencies:**
+   ```bash
+   bun install
+   ```
+
+2. **Configure environment variables:**
+   See [Detailed Setup](#detailed-setup) for the required `.env.local` configurations.
+
+3. **Initialize Convex and database:**
+   ```bash
+   bun run dev:setup
+   ```
+
+### Running Locally
+
+To start the full development environment:
 ```bash
-bun install
+bun run dev
 ```
+The app will be available at `http://localhost:3001`.
 
-## 2) Configure environment variables
+---
 
-Use `.env.example` for root/shared values and `apps/web/.env.example` for the Next.js public values.
+<details>
+<summary><b>Detailed Setup & Technical Documentation</b></summary>
 
-### Root/shared env (`.env.local`)
+## Detailed Setup
 
-Create `.env.local` in the repository root with the shared local values used by Playwright and local setup helpers:
+### 1. Root/shared env (`.env.local`)
+
+Create `.env.local` in the repository root:
 
 ```bash
 BETTER_AUTH_SECRET=<generate-a-long-random-secret>
@@ -32,20 +89,9 @@ BETTER_AUTH_URL=http://localhost:3001
 SITE_URL=http://localhost:3001
 ```
 
-Optional additions in root `.env.local`:
+### 2. Web env (`apps/web/.env.local`)
 
-```bash
-RESEND_API_KEY=<your-resend-api-key>
-RESEND_WEBHOOK_SECRET=<your-resend-webhook-secret>
-RESEND_FROM_EMAIL=support@fyloph.com
-RESEND_FROM=
-SUPPORT_INBOX_EMAIL=support@fyloph.com
-AI_PROVIDER_API_KEY=
-```
-
-### Web env (`apps/web/.env.local`)
-
-Create `apps/web/.env.local` with the public values read directly by the Next.js app:
+Create `apps/web/.env.local`:
 
 ```bash
 NEXT_PUBLIC_SITE_URL=http://localhost:3001
@@ -53,190 +99,31 @@ NEXT_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 NEXT_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
 ```
 
-### Backend env (`packages/backend/.env.local` + Convex deployment env)
+### 3. Backend env (Convex deployment)
 
-`packages/backend/.env.local` is generated by the Convex configure flow and stores the local Convex deployment values used by the backend CLI (`CONVEX_DEPLOYMENT`, `CONVEX_URL`, `CONVEX_SITE_URL`).
-
-After running `bun run dev:setup`, run these from `packages/backend` to set backend/runtime env vars on your Convex deployment:
+After running `bun run dev:setup`, set these on your Convex deployment:
 
 ```bash
 bunx convex env set SITE_URL http://localhost:3001
 bunx convex env set BETTER_AUTH_URL http://localhost:3001
 bunx convex env set BETTER_AUTH_SECRET <generate-a-long-random-secret>
-```
-
-Optional (needed only for outbound/inbound email features):
-
-```bash
-bunx convex env set RESEND_API_KEY <your-resend-api-key>
-bunx convex env set RESEND_FROM_EMAIL support@fyloph.com
-bunx convex env set RESEND_WEBHOOK_SECRET <your-resend-webhook-secret>
-bunx convex env set SUPPORT_INBOX_EMAIL support@fyloph.com
-```
-
-Optional (needed for AI features: resume parsing, draft generation, ticket classification):
-
-```bash
 bunx convex env set AI_PROVIDER_API_KEY <your-google-ai-api-key>
-# Optional: resume parser model (default: gemini-2.5-flash)
-bunx convex env set AI_RESUME_MODEL gemini-2.5-flash
 ```
 
-**Important:** Convex actions run in the cloud and do **not** read your local `.env.local`. You must set `AI_PROVIDER_API_KEY` (and any other keys used by actions) with `convex env set` so the deployment can use them.
+## Tests and Verification
 
-Notes:
-
-- `AI_PROVIDER_API_KEY` enables provider-backed draft generation, ticket classification, and resume parsing through Google AI (e.g. Gemini). Resume parsing uses a multimodal model (e.g. `gemini-2.5-flash`); other features may use different defaults.
-- If `AI_PROVIDER_API_KEY` is missing or the provider response is unusable, the classification and draft paths fall back to deterministic output and persist the fallback metadata; resume parsing will fail with "AI_PROVIDER_API_KEY is required".
-- The app runs on port `3001` in dev (`apps/web/package.json`).
-
-## 3) Initialize Convex and database (first run)
-
-From repo root:
-
-```bash
-bun run dev:setup
-```
-
-What this does:
-
-- Runs Convex configure flow (`convex dev --configure --until-success`)
-- Connects this repo to a Convex deployment
-- Bootstraps backend codegen and applies the schema in `packages/backend/convex/schema.ts`
-
-Database notes:
-
-- Convex creates/updates tables from the schema automatically.
-- There is currently no committed seed script in the repo.
-- Queue, review, visibility, policy, and ticket workspace flows rely on authenticated membership plus live Convex data.
-- Inbound ticket ingestion now persists classification metadata and routing state so `/queue`, `/review`, and `/tickets/[ticketId]` reflect the current workflow.
-
-## 4) Run the app locally
-
-### Recommended (single command)
-
-```bash
-bun run dev
-```
-
-This runs all workspace `dev` tasks through Turbo.
-
-### Split terminals (useful for debugging)
-
-Terminal 1 (Convex backend):
-
-```bash
-bun run dev:server
-```
-
-Terminal 2 (Next.js web app):
-
-```bash
-bun run dev:web
-```
-
-Then open:
-
-- `http://localhost:3001/queue`
-
-### Auth routes and protected views
-
-- User auth pages:
-  - `http://localhost:3001/sign-in`
-  - `http://localhost:3001/sign-up`
-- Protected routes:
-  - `/queue`
-  - `/review`
-  - `/visibility`
-  - `/settings/policy`
-  - `/tickets/<ticketId>`
-- If a user is signed out and visits a protected route, the proxy redirects to:
-  - `/sign-in?next=<requested-path>`
-- After successful sign-in/sign-up, the app sends the user to the safe `next` path.
-
-## 5) Tests and verification
-
-### Unit/integration tests (Vitest workspace)
-
+### Unit Tests
 ```bash
 bun run test
 ```
 
-Important: use `bun run test`, not `bun test`.
-
-### Playwright E2E tests
-
-Install browser dependencies once:
-
+### E2E Tests (Playwright)
 ```bash
 bunx playwright install --with-deps chromium
-```
-
-Run the full E2E suite:
-
-```bash
 bunx playwright test
 ```
 
-Run the expanded pilot coverage file directly:
-
-```bash
-bunx playwright test apps/web/tests/e2e/pilot-app.spec.ts
-```
-
-This file now covers the live queue, review, ticket workspace, note-entry, and lead-review flows. The known sign-out assertion issue is still excluded from MVP scope.
-
-Run the minimal smoke check only:
-
-```bash
-bunx playwright test apps/web/tests/e2e/pilot-smoke.spec.ts
-```
-
-Run the guarded live outbound email verification:
-
-```bash
-E2E_RESEND_LIVE=1 bunx playwright test apps/web/tests/e2e/resend-live.spec.ts
-```
-
-This spec sends a real approved reply through Resend and verifies the persisted outbound message, so it is opt-in rather than part of the default suite.
-
-True live inbound webhook verification is not part of the default local or CI suite because Resend needs a public callback target that can receive the webhook request.
-
-The Playwright config starts its own web server for these runs.
-If you already have the app running on port `3001`, stop it before launching Playwright.
-
-### Build
-
-```bash
-bun run build
-```
-
-### Type check placeholder
-
-```bash
-bun run check-types
-```
-
-At the moment this command is wired through Turbo, but no package defines a `check-types` task yet, so it is currently a no-op.
-
-## Current MVP surfaces
-
-- `/queue` - live queue with AI classification, routing reason, assignee, and drill-in links
-- `/review` - live review-needed queue for manager verification and manual triage
-- `/tickets/[ticketId]` - live ticket workspace with note entry, routing context, recommended assignees, draft reply generation, approved send, and lead review actions
-- `/visibility` - live workload view across the pilot workspace
-- `/settings/policy` - live routing policy controls
-
-## Helpful scripts (repo root)
-
-- `bun run dev` - run all dev tasks
-- `bun run dev:setup` - first-time Convex setup
-- `bun run dev:server` - backend only
-- `bun run dev:web` - frontend only
-- `bun run test` - Vitest workspace suite
-- `bun run build` - production build
-
-## Project structure
+## Project Structure
 
 ```text
 .
@@ -247,5 +134,11 @@ At the moment this command is wired through Turbo, but no package defines a `che
 │   ├── config/             # Shared TS configs
 │   └── env/                # Web env validation
 ├── .env.example            # Env variable checklist
-└── docs/pilot-runbook.md   # Smoke-test runbook
+└── docs/                   # Extended documentation
 ```
+
+</details>
+
+## License
+
+This project is licensed under the MIT License.

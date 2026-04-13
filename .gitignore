@@ -1,28 +1,32 @@
-# Dependencies
-node_modules
-.pnp
-.pnp.js
+# OS files
+.DS_Store
+Thumbs.db
 
-# Build outputs
-dist
-build
-*.tsbuildinfo
-
-# Environment variables
-.env
-.env*.local
-
-# IDEs and editors
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.idea
+# IDE configs
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
-.DS_Store
+
+# Build artifacts
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Dependency folders
+node_modules/
+__pycache__/
+.venv/
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.*
+!.env.example
 
 # Logs
 logs
@@ -34,21 +38,19 @@ lerna-debug.log*
 .pnpm-debug.log*
 
 # Turbo
-.turbo
+.turbo/
 .worktrees/
 
 # Better-T-Stack
-.alchemy
+.alchemy/
 
 # Testing
-coverage
-.nyc_output
-test-results
+coverage/
+.nyc_output/
+test-results/
 
 # Misc
 *.tgz
-.cache
-tmp
-temp
-
-.next/
+.cache/
+tmp/
+temp/
