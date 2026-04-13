@@ -2,6 +2,9 @@ const { defineConfig } = require("@playwright/test");
 const { randomUUID } = require("node:crypto");
 const dotenv = require("dotenv");
 
+const E2E_PORT = 3101;
+const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
+
 const rootEnv = {};
 const webEnv = {};
 
@@ -15,7 +18,7 @@ const selectedEnv = {
 	BETTER_AUTH_SECRET:
 		rootEnv.BETTER_AUTH_SECRET ?? process.env.BETTER_AUTH_SECRET,
 	BETTER_AUTH_URL:
-		rootEnv.BETTER_AUTH_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3001",
+		rootEnv.BETTER_AUTH_URL ?? process.env.BETTER_AUTH_URL ?? E2E_BASE_URL,
 	SUPPORT_INBOX_EMAIL:
 		rootEnv.SUPPORT_INBOX_EMAIL ?? process.env.SUPPORT_INBOX_EMAIL,
 	NEXT_PUBLIC_CONVEX_SITE_URL:
@@ -25,31 +28,32 @@ const selectedEnv = {
 		webEnv.NEXT_PUBLIC_CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL,
 	NEXT_PUBLIC_SITE_URL:
 		webEnv.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL,
-	SITE_URL: rootEnv.SITE_URL ?? process.env.SITE_URL ?? "http://localhost:3001",
+	SITE_URL: rootEnv.SITE_URL ?? process.env.SITE_URL ?? E2E_BASE_URL,
 };
 
 const e2eEnv = {
 	E2E_BOOTSTRAP_SECRET: e2eBootstrapSecret,
 	ENABLE_E2E_BOOTSTRAP: "1",
-	NEXT_PUBLIC_SITE_URL: "http://localhost:3001",
-	SITE_URL: "http://localhost:3001",
+	BETTER_AUTH_URL: E2E_BASE_URL,
+	NEXT_PUBLIC_SITE_URL: E2E_BASE_URL,
+	SITE_URL: E2E_BASE_URL,
 };
 
 module.exports = defineConfig({
 	testDir: "./apps/web/tests/e2e",
 	webServer: {
-		command: "bun run dev",
+		command: `bunx next dev --port ${E2E_PORT}`,
 		cwd: "./apps/web",
 		env: {
 			...process.env,
 			...selectedEnv,
 			...e2eEnv,
 		},
-		port: 3001,
+		port: E2E_PORT,
 		reuseExistingServer: false,
 	},
 	use: {
-		baseURL: "http://localhost:3001",
+		baseURL: E2E_BASE_URL,
 		trace: "on-first-retry",
 	},
 });
